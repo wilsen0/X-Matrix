@@ -68,6 +68,7 @@ test("official-executor materializes protective-put option place-order command",
         skill: "official-executor",
         stage: "executor",
         sharedState,
+        runtimeInput: { selectedProposal: "protective-put" },
       }),
     );
 

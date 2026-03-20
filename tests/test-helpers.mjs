@@ -137,6 +137,7 @@ export function createContext({
   stage = "sensor",
   skill = "test-skill",
   sharedState = {},
+  runtimeInput = {},
   trace = [],
 } = {}) {
   const artifacts = createArtifactStore(undefined, sharedState);
@@ -174,6 +175,7 @@ export function createContext({
     manifests: [],
     trace,
     artifacts,
+    runtimeInput,
     sharedState,
   };
 }

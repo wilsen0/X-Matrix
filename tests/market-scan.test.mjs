@@ -14,6 +14,7 @@ test("market-scan reads mocked ticker/candle/funding/orderbook snapshots", async
         skill: "market-scan",
         stage: "sensor",
         sharedState,
+        runtimeInput: { initialSymbols: ["BTC"] },
       }),
     );
 

@@ -697,6 +697,7 @@ export async function createPlan(goal: string, options: PlanOptions): Promise<Ru
       manifests,
       trace: [],
       artifacts,
+      runtimeInput: {},
       sharedState,
     },
   });
@@ -781,9 +782,6 @@ export async function applyRun(runId: string, options: ApplyOptions): Promise<Ru
     doctrineRefs: decision.doctrineRefs ?? [],
   });
 
-  sharedState.selectedProposal = proposal.name;
-  sharedState.selectedProposalData = proposal;
-
   const traceWithoutReplay = baseRecord.trace.filter((entry) => entry.skill !== "replay");
   const executorOutput = await executeSkill(executorManifest, {
     runId: baseRecord.id,
@@ -792,6 +790,9 @@ export async function applyRun(runId: string, options: ApplyOptions): Promise<Ru
     manifests,
     trace: traceWithoutReplay,
     artifacts,
+    runtimeInput: {
+      selectedProposal: proposal.name,
+    },
     sharedState,
   });
 
@@ -874,12 +875,8 @@ export async function replayRun(runId: string, options: ReplayOptions = {}): Pro
     return record;
   }
 
-  const sharedState: Record<string, unknown> = {
-    replaySkillFilter: options.skill,
-    latestExecutionResults: record.executions.at(-1)?.results ?? [],
-  };
+  const sharedState: Record<string, unknown> = {};
   const artifacts = createArtifactStore(await loadArtifactSnapshot(runId), sharedState);
-  sharedState.replayCompatibilityWarnings = artifacts.legacyWarnings();
   const traceWithoutReplay = record.trace.filter((entry) => entry.skill !== "replay");
   const replayOutput = await executeSkill(replayManifest, {
     runId: record.id,
@@ -888,6 +885,11 @@ export async function replayRun(runId: string, options: ReplayOptions = {}): Pro
     manifests,
     trace: traceWithoutReplay,
     artifacts,
+    runtimeInput: {
+      skillFilter: options.skill,
+      latestExecutionResults: record.executions.at(-1)?.results ?? [],
+      compatibilityWarnings: artifacts.legacyWarnings(),
+    },
     sharedState,
   });
 

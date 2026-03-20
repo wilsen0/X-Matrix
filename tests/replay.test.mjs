@@ -153,7 +153,7 @@ test("replay supports --skill style filtering through sharedState", async () => 
         runId,
         skill: "replay",
         stage: "memory",
-        sharedState: { replaySkillFilter: "portfolio-xray" },
+        runtimeInput: { skillFilter: "portfolio-xray" },
       }),
     );
 

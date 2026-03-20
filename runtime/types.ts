@@ -400,6 +400,7 @@ export interface SkillContext {
   manifests: SkillManifest[];
   trace: SkillOutput[];
   artifacts: ArtifactStore;
+  runtimeInput: Record<string, unknown>;
   sharedState: Record<string, unknown>;
 }
 

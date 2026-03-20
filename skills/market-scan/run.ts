@@ -358,7 +358,7 @@ function extractTrendScore(instId: string, payload: unknown): TrendScoreSummary 
 
 function symbolsFromContext(context: SkillContext): {
   symbols: string[];
-  source: "artifact" | "legacy-shared-state" | "default";
+  source: "artifact" | "runtime-input" | "default";
 } {
   const portfolioSnapshot = context.artifacts.get<PortfolioSnapshot>("portfolio.snapshot")?.data;
   if (portfolioSnapshot?.symbols && portfolioSnapshot.symbols.length > 0) {
@@ -368,11 +368,11 @@ function symbolsFromContext(context: SkillContext): {
     };
   }
 
-  const raw = context.sharedState.symbols;
+  const raw = context.runtimeInput.initialSymbols;
   if (Array.isArray(raw)) {
     return {
       symbols: raw.filter((symbol): symbol is string => typeof symbol === "string"),
-      source: "legacy-shared-state",
+      source: "runtime-input",
     };
   }
 
@@ -534,8 +534,8 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
       `Snapshot coverage: tickers=${Object.keys(marketSnapshot.tickers).length}, candles=${Object.keys(marketSnapshot.candles).length}, funding=${Object.keys(marketSnapshot.fundingRates).length}, orderbook=${Object.keys(marketSnapshot.orderbooks).length}.`,
     );
   }
-  if (symbolSelection.source === "legacy-shared-state") {
-    marketFacts.push("Compatibility warning: market-scan read symbols from legacy sharedState instead of portfolio.snapshot.");
+  if (symbolSelection.source === "runtime-input") {
+    marketFacts.push("Compatibility warning: market-scan read symbols from runtime input instead of portfolio.snapshot.");
   }
 
   marketFacts.push(

@@ -16,8 +16,8 @@ function allowedModulesForPlane(plane: SkillContext["plane"]): string[] {
 }
 
 function chooseProposal(context: SkillContext, proposals: SkillProposal[]): SkillProposal {
-  const selected = typeof context.sharedState.selectedProposal === "string"
-    ? context.sharedState.selectedProposal
+  const selected = typeof context.runtimeInput.selectedProposal === "string"
+    ? context.runtimeInput.selectedProposal
     : null;
   if (selected) {
     const matched = proposals.find((proposal) => proposal.name === selected);

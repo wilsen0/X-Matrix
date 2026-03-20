@@ -28,8 +28,8 @@ function toString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
 }
 
-function readSkillFilter(sharedState: Record<string, unknown>): string | undefined {
-  const raw = sharedState.replaySkillFilter;
+function readSkillFilter(runtimeInput: Record<string, unknown>): string | undefined {
+  const raw = runtimeInput.skillFilter;
   if (typeof raw !== "string" || raw.trim().length === 0) {
     return undefined;
   }
@@ -118,8 +118,8 @@ function summarizePolicy(decision: PolicyDecision | undefined): string {
 }
 
 export default async function run(context: SkillContext): Promise<SkillOutput> {
-  const sharedState = context.sharedState as Record<string, unknown>;
-  const skillFilter = readSkillFilter(sharedState);
+  const runtimeInput = context.runtimeInput as Record<string, unknown>;
+  const skillFilter = readSkillFilter(runtimeInput);
   const traceEnvelope = await loadTraceEnvelope(context.runId);
   const executionEnvelope = await loadExecutionEnvelope(context.runId);
   const artifactSnapshot = await loadArtifactSnapshot(context.runId);
@@ -131,12 +131,12 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
   const latestDecision = (context.artifacts.get<PolicyDecision>("execution.apply-decision")?.data ??
     context.artifacts.get<PolicyDecision>("policy.plan-decision")?.data ??
     traceEnvelope?.policyDecision) as PolicyDecision | undefined;
-  const latestResults = executionEnvelope?.executions.at(-1)?.results ?? normalizeExecutionResults(sharedState.latestExecutionResults);
+  const latestResults = executionEnvelope?.executions.at(-1)?.results ?? normalizeExecutionResults(runtimeInput.latestExecutionResults);
   const artifactLines = summarizeArtifacts(artifactSnapshot);
   const evidenceLines = summarizeEvidence(replayTrace);
   const chain = timeline(replayTrace);
-  const compatibilityWarnings = Array.isArray(sharedState.replayCompatibilityWarnings)
-    ? sharedState.replayCompatibilityWarnings.filter((item): item is string => typeof item === "string")
+  const compatibilityWarnings = Array.isArray(runtimeInput.compatibilityWarnings)
+    ? runtimeInput.compatibilityWarnings.filter((item): item is string => typeof item === "string")
     : [];
 
   const facts = [

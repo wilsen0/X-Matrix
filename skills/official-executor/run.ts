@@ -161,10 +161,10 @@ function applyRiskBudgetToSwap(step: SwapOrderPlanStep, thesis: TradeThesis): Sw
 
 function selectProposal(
   proposals: SkillProposal[],
-  sharedState: Record<string, unknown>,
+  runtimeInput: Record<string, unknown>,
   decision: PolicyDecision,
 ): SkillProposal {
-  const selected = typeof sharedState.selectedProposal === "string" ? sharedState.selectedProposal : null;
+  const selected = typeof runtimeInput.selectedProposal === "string" ? runtimeInput.selectedProposal : null;
   if (selected) {
     const explicit = proposals.find((proposal) => proposal.name === selected);
     if (explicit) {
@@ -229,11 +229,10 @@ function symbolSet(orderPlan: OrderPlanStep[]): string[] {
 }
 
 export default async function run(context: SkillContext): Promise<SkillOutput> {
-  const sharedState = context.sharedState as Record<string, unknown>;
   const proposals = context.artifacts.require<SkillProposal[]>("planning.proposals").data;
   const decision = context.artifacts.require<PolicyDecision>("policy.plan-decision").data;
   const thesis = context.artifacts.require<TradeThesis>("trade.thesis").data;
-  const proposal = selectProposal(proposals, sharedState, decision);
+  const proposal = selectProposal(proposals, context.runtimeInput, decision);
   const orderPlan = materializeProposal(proposal, thesis);
   const symbols = symbolSet(orderPlan);
   const intents = [
