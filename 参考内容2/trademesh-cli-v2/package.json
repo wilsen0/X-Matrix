@@ -1,0 +1,21 @@
+{
+  "name": "trademesh-cli",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "node --loader ts-node/esm src/index.ts",
+    "skills": "node --loader ts-node/esm src/index.ts skills list --json",
+    "doctor": "node --loader ts-node/esm src/index.ts doctor --json",
+    "plan": "node --loader ts-node/esm src/index.ts plan \"hedge my BTC downside with demo first\" --plane demo --json"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

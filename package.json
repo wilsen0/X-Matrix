@@ -1,0 +1,28 @@
+{
+  "name": "okx-skill-mesh",
+  "version": "0.1.0",
+  "description": "CLI-native skill mesh runtime for OKX Agent Trade Kit workflows.",
+  "type": "module",
+  "bin": {
+    "trademesh": "./dist/bin/trademesh.js"
+  },
+  "files": [
+    "dist",
+    "skills",
+    "profiles"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/bin/trademesh.js",
+    "doctor": "npm run build --silent && node dist/bin/trademesh.js doctor",
+    "skills": "npm run build --silent && node dist/bin/trademesh.js skills ls",
+    "test": "pnpm build && node --test --test-concurrency=1 tests/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@types/node": "^24.6.0",
+    "typescript": "^5.9.3"
+  }
+}

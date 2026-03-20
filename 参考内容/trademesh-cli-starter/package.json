@@ -1,0 +1,19 @@
+{
+  "name": "trademesh-cli-starter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "node --loader ts-node/esm src/index.ts",
+    "plan": "node --loader ts-node/esm src/index.ts plan \"scan my portfolio risk\"",
+    "doctor": "node --loader ts-node/esm src/index.ts doctor"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

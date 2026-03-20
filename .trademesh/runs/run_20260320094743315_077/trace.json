@@ -1,0 +1,2370 @@
+{
+  "runId": "run_20260320094743315_077",
+  "goal": "对冲 BTC 风险，demo",
+  "plane": "demo",
+  "status": "failed",
+  "createdAt": "2026-03-20T09:47:43.396Z",
+  "updatedAt": "2026-03-20T09:49:02.190Z",
+  "trace": [
+    {
+      "skill": "portfolio-xray",
+      "stage": "sensor",
+      "goal": "对冲 BTC 风险，demo",
+      "summary": "Turn the goal into a provisional portfolio risk map before any hedge planning.",
+      "facts": [
+        "Detected symbols: BTC",
+        "Target drawdown cap interpreted as 4%",
+        "No live account connector is configured, so the portfolio is treated as a prompt-derived working set.",
+        "Directional exposure: long $0 / short $0 (net +$0).",
+        "Concentration: insufficient notional data from positions payload.",
+        "Leverage hotspots: no position above 3x was detected.",
+        "Fee drag: no fee-rate or bill-fee datapoints were parsed.",
+        "Account read fallback reason: okx CLI is not installed on PATH."
+      ],
+      "constraints": {
+        "selectedSymbols": [
+          "BTC"
+        ],
+        "drawdownTarget": "4%",
+        "requiredModules": [
+          "account"
+        ],
+        "portfolioSource": "fallback",
+        "portfolioRiskProfile": {
+          "directionalExposure": {
+            "longUsd": 0,
+            "shortUsd": 0,
+            "netUsd": 0,
+            "dominantSide": "flat"
+          },
+          "concentration": {
+            "grossUsd": 0,
+            "topSymbol": "n/a",
+            "topSharePct": 0,
+            "top3": []
+          },
+          "leverageHotspots": [],
+          "feeDrag": {
+            "recentFeePaidUsd": 0,
+            "recentFeeRows": 0
+          }
+        }
+      },
+      "proposal": [],
+      "risk": {
+        "score": 0.12,
+        "maxLoss": "Unknown until a hedge plan is selected",
+        "needsApproval": false,
+        "reasons": [
+          "Prompt-derived portfolio only."
+        ]
+      },
+      "permissions": {
+        "plane": "demo",
+        "officialWriteOnly": true,
+        "allowedModules": [
+          "account"
+        ]
+      },
+      "handoff": "market-scan",
+      "metadata": {
+        "symbols": [
+          "BTC"
+        ],
+        "drawdownTarget": "4%",
+        "accountSource": "fallback",
+        "accountCommands": [
+          "okx account balance --profile demo --json",
+          "okx account positions --profile demo --json",
+          "okx account fee-rates --profile demo --json",
+          "okx account bills --profile demo --json"
+        ],
+        "accountErrors": [
+          "okx CLI is not installed on PATH.",
+          "okx CLI is not installed on PATH.",
+          "okx CLI is not installed on PATH.",
+          "okx CLI is not installed on PATH."
+        ],
+        "riskProfile": {
+          "directionalExposure": {
+            "longUsd": 0,
+            "shortUsd": 0,
+            "netUsd": 0,
+            "dominantSide": "flat"
+          },
+          "concentration": {
+            "grossUsd": 0,
+            "topSymbol": "n/a",
+            "topSharePct": 0,
+            "top3": []
+          },
+          "leverageHotspots": [],
+          "feeDrag": {
+            "recentFeePaidUsd": 0,
+            "recentFeeRows": 0
+          }
+        }
+      },
+      "timestamp": "2026-03-20T09:47:43.353Z"
+    },
+    {
+      "skill": "market-scan",
+      "stage": "sensor",
+      "goal": "对冲 BTC 风险，demo",
+      "summary": "Read market regime, liquidity, and downside context before ranking hedge proposals.",
+      "facts": [
+        "BTC realized volatility is elevated versus the recent range",
+        "Market read fallback reason: BTC-USDT ticker: okx CLI is not installed on PATH."
+      ],
+      "constraints": {
+        "selectedSymbols": [
+          "BTC"
+        ],
+        "requiredModules": [
+          "market"
+        ],
+        "marketSnapshotMode": "fallback",
+        "marketSnapshotCoverage": {
+          "tickers": 0,
+          "candles": 0,
+          "fundingRates": 0,
+          "orderbooks": 0
+        }
+      },
+      "proposal": [],
+      "risk": {
+        "score": 0.18,
+        "maxLoss": "Market drift remains unbounded without a hedge",
+        "needsApproval": false,
+        "reasons": [
+          "Snapshot is placeholder data until the OKX CLI market wrapper is connected."
+        ]
+      },
+      "permissions": {
+        "plane": "demo",
+        "officialWriteOnly": true,
+        "allowedModules": [
+          "market"
+        ]
+      },
+      "handoff": "hedge-planner",
+      "metadata": {
+        "snapshotMode": "fallback",
+        "marketCommands": [
+          "okx market ticker BTC-USDT --profile demo --json",
+          "okx market candles BTC-USDT --bar 1H --limit 120 --profile demo --json",
+          "okx market funding-rate BTC-USDT-SWAP --profile demo --json",
+          "okx market orderbook BTC-USDT --sz 20 --profile demo --json"
+        ],
+        "marketErrors": [
+          "BTC-USDT ticker: okx CLI is not installed on PATH.",
+          "BTC-USDT candles: okx CLI is not installed on PATH.",
+          "BTC-USDT-SWAP funding-rate: okx CLI is not installed on PATH.",
+          "BTC-USDT orderbook: okx CLI is not installed on PATH."
+        ]
+      },
+      "timestamp": "2026-03-20T09:47:43.384Z"
+    },
+    {
+      "skill": "hedge-planner",
+      "stage": "planner",
+      "goal": "对冲 BTC 风险，demo",
+      "summary": "Compute hedge direction/size from portfolio risk profile and emit precise swap place-order parameters.",
+      "facts": [
+        "Directional exposure net=0.00 USD => hedge side flat.",
+        "Drawdown target 4% => hedge ratio 0.60.",
+        "Concentration top=n/a share=0.0%, diversification=not required.",
+        "Leverage hotspots prioritized: 0.",
+        "Directional order params: none.",
+        "Diversified order params: none.",
+        "Deleverage order params: none."
+      ],
+      "constraints": {
+        "selectedSymbols": [
+          "BTC"
+        ],
+        "drawdownTarget": "4%",
+        "hedgeRatio": 0.6,
+        "requiredModules": [
+          "account",
+          "market",
+          "swap"
+        ],
+        "mustCompare": [
+          "deleverage-first",
+          "diversified-hedge",
+          "directional-net-hedge"
+        ],
+        "directionalExposure": {
+          "longUsd": 0,
+          "shortUsd": 0,
+          "netUsd": 0,
+          "dominantSide": "flat"
+        },
+        "concentration": {
+          "grossUsd": 0,
+          "topSymbol": "n/a",
+          "topSharePct": 0,
+          "top3": []
+        },
+        "leverageHotspots": []
+      },
+      "proposal": [
+        {
+          "name": "deleverage-first",
+          "reason": "Prioritize reducing high-leverage positions, then keep directional exposure from expanding.",
+          "estimatedCost": "Funding + maker/taker fees, usually lower than forced liquidation risk",
+          "estimatedProtection": "Fastest reduction of liquidation sensitivity on high-leverage legs",
+          "requiredModules": [
+            "account",
+            "market",
+            "swap"
+          ],
+          "intents": [
+            {
+              "command": "okx account balance --profile demo --json",
+              "args": [
+                "okx",
+                "account",
+                "balance",
+                "--profile",
+                "demo",
+                "--json"
+              ],
+              "module": "account",
+              "requiresWrite": false,
+              "reason": "Read balances before final hedge sizing."
+            },
+            {
+              "command": "okx account positions --profile demo --json",
+              "args": [
+                "okx",
+                "account",
+                "positions",
+                "--profile",
+                "demo",
+                "--json"
+              ],
+              "module": "account",
+              "requiresWrite": false,
+              "reason": "Read positions before applying hedge orders."
+            },
+            {
+              "command": "okx market ticker BTC-USDT --profile demo --json",
+              "args": [
+                "okx",
+                "market",
+                "ticker",
+                "BTC-USDT",
+                "--profile",
+                "demo",
+                "--json"
+              ],
+              "module": "market",
+              "requiresWrite": false,
+              "reason": "Read BTC spot ticker for final order price reference."
+            }
+          ],
+          "orderPlan": []
+        },
+        {
+          "name": "diversified-hedge",
+          "reason": "Split hedge pressure across concentration-heavy symbols to avoid single-asset dependence.",
+          "estimatedCost": "Multi-leg execution slippage across top concentrated assets",
+          "estimatedProtection": "Better concentration control with still-meaningful directional dampening",
+          "requiredModules": [
+            "account",
+            "market",
+            "swap"
+          ],
+          "intents": [
+            {
+              "command": "okx account balance --profile demo --json",
+              "args": [
+                "okx",
+                "account",
+                "balance",
+                "--profile",
+                "demo",
+                "--json"
+              ],
+              "module": "account",
+              "requiresWrite": false,
+              "reason": "Read balances before final hedge sizing."
+            },
+            {
+              "command": "okx account positions --profile demo --json",
+              "args": [
+                "okx",
+                "account",
+                "positions",
+                "--profile",
+                "demo",
+                "--json"
+              ],
+              "module": "account",
+              "requiresWrite": false,
+              "reason": "Read positions before applying hedge orders."
+            },
+            {
+              "command": "okx market ticker BTC-USDT --profile demo --json",
+              "args": [
+                "okx",
+                "market",
+                "ticker",
+                "BTC-USDT",
+                "--profile",
+                "demo",
+                "--json"
+              ],
+              "module": "market",
+              "requiresWrite": false,
+              "reason": "Read BTC spot ticker for final order price reference."
+            }
+          ],
+          "orderPlan": []
+        },
+        {
+          "name": "directional-net-hedge",
+          "reason": "Directly neutralize the net directional exposure with a focused perpetual hedge.",
+          "estimatedCost": "Single-leg funding + slippage",
+          "estimatedProtection": "Highest speed to compress net delta",
+          "requiredModules": [
+            "account",
+            "market",
+            "swap"
+          ],
+          "intents": [
+            {
+              "command": "okx account balance --profile demo --json",
+              "args": [
+                "okx",
+                "account",
+                "balance",
+                "--profile",
+                "demo",
+                "--json"
+              ],
+              "module": "account",
+              "requiresWrite": false,
+              "reason": "Read balances before final hedge sizing."
+            },
+            {
+              "command": "okx account positions --profile demo --json",
+              "args": [
+                "okx",
+                "account",
+                "positions",
+                "--profile",
+                "demo",
+                "--json"
+              ],
+              "module": "account",
+              "requiresWrite": false,
+              "reason": "Read positions before applying hedge orders."
+            },
+            {
+              "command": "okx market ticker BTC-USDT --profile demo --json",
+              "args": [
+                "okx",
+                "market",
+                "ticker",
+                "BTC-USDT",
+                "--profile",
+                "demo",
+                "--json"
+              ],
+              "module": "market",
+              "requiresWrite": false,
+              "reason": "Read BTC spot ticker for final order price reference."
+            }
+          ],
+          "orderPlan": []
+        }
+      ],
+      "risk": {
+        "score": 0.34,
+        "maxLoss": "Execution slippage and funding drift if hedge ratio is oversized",
+        "needsApproval": true,
+        "reasons": [
+          "Planner emits swap write intents with explicit size/price parameters.",
+          "Deleverage actions can change margin profile quickly."
+        ]
+      },
+      "permissions": {
+        "plane": "demo",
+        "officialWriteOnly": true,
+        "allowedModules": [
+          "account",
+          "market",
+          "swap"
+        ]
+      },
+      "handoff": "policy-gate",
+      "metadata": {
+        "ranked": [],
+        "hedgeRatio": 0.6,
+        "directionalTargetNotional": 0,
+        "needsDiversification": false,
+        "leverageHotspotCount": 0
+      },
+      "timestamp": "2026-03-20T09:47:43.387Z"
+    },
+    {
+      "skill": "policy-gate",
+      "stage": "guardrail",
+      "goal": "对冲 BTC 风险，demo",
+      "summary": "Apply dynamic account-aware approval checks with symbol filters and risk limits.",
+      "facts": [
+        "Requested plane: demo",
+        "Selected proposal: deleverage-first",
+        "Account source: fallback",
+        "Open positions: 0, gross exposure: 0.00 USD",
+        "Planned order notional: 0.00 USD, projected exposure: 0.00 USD",
+        "Available balance: n/a",
+        "Whitelist: BTC, ETH, SOL, XRP, ADA, DOGE",
+        "Blacklist: LUNA, UST, FTT"
+      ],
+      "constraints": {
+        "mustDemoFirst": true,
+        "requiredApprovalForLive": true,
+        "requiredModules": [
+          "account",
+          "market",
+          "swap"
+        ],
+        "selectedProposal": "deleverage-first",
+        "limits": {
+          "maxSingleOrderNotionalUsd": 50000,
+          "maxTotalOrderNotionalUsd": 150000,
+          "maxTotalExposureUsd": 300000,
+          "initialMarginRate": 0.12,
+          "whitelistSymbols": [
+            "BTC",
+            "ETH",
+            "SOL",
+            "XRP",
+            "ADA",
+            "DOGE"
+          ],
+          "blacklistSymbols": [
+            "LUNA",
+            "UST",
+            "FTT"
+          ]
+        },
+        "totalOrderNotionalUsd": 0,
+        "projectedExposureUsd": 0
+      },
+      "proposal": [],
+      "risk": {
+        "score": 0.3,
+        "maxLoss": "Demo capital only",
+        "needsApproval": true,
+        "reasons": [
+          "Demo proposal passed dynamic policy checks."
+        ]
+      },
+      "permissions": {
+        "plane": "demo",
+        "officialWriteOnly": true,
+        "allowedModules": [
+          "account",
+          "market",
+          "swap"
+        ]
+      },
+      "handoff": "official-executor",
+      "metadata": {
+        "decision": "approved-demo",
+        "policyNotes": [
+          "Demo proposal passed dynamic policy checks."
+        ],
+        "selectedProposal": "deleverage-first",
+        "accountSource": "fallback",
+        "availableUsd": null,
+        "grossExposureUsd": 0,
+        "totalOrderNotionalUsd": 0
+      },
+      "timestamp": "2026-03-20T09:47:43.388Z"
+    },
+    {
+      "skill": "official-executor",
+      "stage": "executor",
+      "goal": "对冲 BTC 风险，demo",
+      "summary": "Materialize policy-approved swap/option plans into executable OKX place-order commands.",
+      "facts": [
+        "Selected proposal: directional-net-hedge",
+        "Execution plane: demo",
+        "Order plan source: swap fallback model",
+        "Materialized swap writes: 1",
+        "Materialized option writes: 0",
+        "TP/SL support: enabled",
+        "Proposal rationale: Directly neutralize the net directional exposure with a focused perpetual hedge.",
+        "Market refresh warning: BTC-USDT ticker: okx CLI is not installed on PATH.",
+        "Pricing fallback warning: Ticker fallback used for BTC when computing order 1.",
+        "Legacy intents were detected; orderPlan fallback was used to keep execution deterministic."
+      ],
+      "constraints": {
+        "selectedProposal": "directional-net-hedge",
+        "requiredModules": [
+          "account",
+          "market",
+          "swap"
+        ],
+        "intentCount": 4,
+        "writeIntentCount": 1,
+        "swapWriteIntentCount": 1,
+        "optionWriteIntentCount": 0,
+        "drawdownTarget": "4%"
+      },
+      "proposal": [],
+      "risk": {
+        "score": 0.42,
+        "maxLoss": "Demo account PnL drift only",
+        "needsApproval": true,
+        "reasons": [
+          "Execution commands were materialized with concrete size, price, and TP/SL parameters."
+        ]
+      },
+      "permissions": {
+        "plane": "demo",
+        "officialWriteOnly": true,
+        "allowedModules": [
+          "account",
+          "market",
+          "swap"
+        ]
+      },
+      "handoff": "replay",
+      "metadata": {
+        "selectedProposal": "directional-net-hedge",
+        "commandPreview": [
+          "okx account balance --profile demo --json",
+          "okx account positions --profile demo --json",
+          "okx market ticker BTC-USDT --profile demo --json",
+          "okx swap place-order --instId BTC-USDT-SWAP --tdMode cross --side sell --ordType limit --sz 0.002 --px 69944.0 --reduceOnly false --tpTriggerPx 68600.0 --tpOrdPx -1 --slTriggerPx 72800.0 --slOrdPx -1 --clOrdId run_20260320094743315_077-1 --tag mesh-fallback --profile demo --json"
+        ],
+        "intents": [
+          {
+            "command": "okx account balance --profile demo --json",
+            "args": [
+              "okx",
+              "account",
+              "balance",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "account",
+            "requiresWrite": false,
+            "reason": "Refresh account balance before materializing execution commands."
+          },
+          {
+            "command": "okx account positions --profile demo --json",
+            "args": [
+              "okx",
+              "account",
+              "positions",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "account",
+            "requiresWrite": false,
+            "reason": "Refresh position inventory before place-order execution."
+          },
+          {
+            "command": "okx market ticker BTC-USDT --profile demo --json",
+            "args": [
+              "okx",
+              "market",
+              "ticker",
+              "BTC-USDT",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "market",
+            "requiresWrite": false,
+            "reason": "Refresh BTC ticker for price-sensitive order materialization."
+          },
+          {
+            "command": "okx swap place-order --instId BTC-USDT-SWAP --tdMode cross --side sell --ordType limit --sz 0.002 --px 69944.0 --reduceOnly false --tpTriggerPx 68600.0 --tpOrdPx -1 --slTriggerPx 72800.0 --slOrdPx -1 --clOrdId run_20260320094743315_077-1 --tag mesh-fallback --profile demo --json",
+            "args": [
+              "okx",
+              "swap",
+              "place-order",
+              "--instId",
+              "BTC-USDT-SWAP",
+              "--tdMode",
+              "cross",
+              "--side",
+              "sell",
+              "--ordType",
+              "limit",
+              "--sz",
+              "0.002",
+              "--px",
+              "69944.0",
+              "--reduceOnly",
+              "false",
+              "--tpTriggerPx",
+              "68600.0",
+              "--tpOrdPx",
+              "-1",
+              "--slTriggerPx",
+              "72800.0",
+              "--slOrdPx",
+              "-1",
+              "--clOrdId",
+              "run_20260320094743315_077-1",
+              "--tag",
+              "mesh-fallback",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "swap",
+            "requiresWrite": true,
+            "reason": "Fallback hedge leg when proposal orderPlan is missing."
+          }
+        ],
+        "orderPlan": [
+          {
+            "kind": "swap-place-order",
+            "purpose": "Fallback hedge leg when proposal orderPlan is missing.",
+            "symbol": "BTC",
+            "targetNotionalUsd": 200,
+            "referencePx": 70000,
+            "params": {
+              "instId": "BTC-USDT-SWAP",
+              "tdMode": "cross",
+              "side": "sell",
+              "ordType": "limit",
+              "sz": "0.002",
+              "px": "69944.0",
+              "reduceOnly": false,
+              "tag": "mesh-fallback",
+              "clOrdId": "run_20260320094743315_077-1",
+              "tpTriggerPx": "68600.0",
+              "tpOrdPx": "-1",
+              "slTriggerPx": "72800.0",
+              "slOrdPx": "-1"
+            },
+            "riskTags": [
+              "fallback"
+            ]
+          }
+        ],
+        "swapOrderPlan": [
+          {
+            "kind": "swap-place-order",
+            "purpose": "Fallback hedge leg when proposal orderPlan is missing.",
+            "symbol": "BTC",
+            "targetNotionalUsd": 200,
+            "referencePx": 70000,
+            "params": {
+              "instId": "BTC-USDT-SWAP",
+              "tdMode": "cross",
+              "side": "sell",
+              "ordType": "limit",
+              "sz": "0.002",
+              "px": "69944.0",
+              "reduceOnly": false,
+              "tag": "mesh-fallback",
+              "clOrdId": "run_20260320094743315_077-1",
+              "tpTriggerPx": "68600.0",
+              "tpOrdPx": "-1",
+              "slTriggerPx": "72800.0",
+              "slOrdPx": "-1"
+            },
+            "riskTags": [
+              "fallback"
+            ]
+          }
+        ],
+        "optionOrderPlan": [],
+        "marketSnapshotSource": "fallback",
+        "marketSnapshotErrors": [
+          "BTC-USDT ticker: okx CLI is not installed on PATH.",
+          "BTC-USDT candles: okx CLI is not installed on PATH.",
+          "BTC-USDT-SWAP funding-rate: okx CLI is not installed on PATH.",
+          "BTC-USDT orderbook: okx CLI is not installed on PATH."
+        ],
+        "priceWarnings": [
+          "Ticker fallback used for BTC when computing order 1."
+        ]
+      },
+      "timestamp": "2026-03-20T09:47:47.815Z"
+    },
+    {
+      "skill": "official-executor",
+      "stage": "executor",
+      "goal": "对冲 BTC 风险，demo",
+      "summary": "Materialize policy-approved swap/option plans into executable OKX place-order commands.",
+      "facts": [
+        "Selected proposal: directional-net-hedge",
+        "Execution plane: demo",
+        "Order plan source: swap fallback model",
+        "Materialized swap writes: 1",
+        "Materialized option writes: 0",
+        "TP/SL support: enabled",
+        "Proposal rationale: Directly neutralize the net directional exposure with a focused perpetual hedge.",
+        "Pricing fallback warning: Ticker fallback used for BTC when computing order 1.",
+        "Legacy intents were detected; orderPlan fallback was used to keep execution deterministic."
+      ],
+      "constraints": {
+        "selectedProposal": "directional-net-hedge",
+        "requiredModules": [
+          "account",
+          "market",
+          "swap"
+        ],
+        "intentCount": 4,
+        "writeIntentCount": 1,
+        "swapWriteIntentCount": 1,
+        "optionWriteIntentCount": 0,
+        "drawdownTarget": "4%"
+      },
+      "proposal": [],
+      "risk": {
+        "score": 0.42,
+        "maxLoss": "Demo account PnL drift only",
+        "needsApproval": true,
+        "reasons": [
+          "Execution commands were materialized with concrete size, price, and TP/SL parameters."
+        ]
+      },
+      "permissions": {
+        "plane": "demo",
+        "officialWriteOnly": true,
+        "allowedModules": [
+          "account",
+          "market",
+          "swap"
+        ]
+      },
+      "handoff": "replay",
+      "metadata": {
+        "selectedProposal": "directional-net-hedge",
+        "commandPreview": [
+          "okx account balance --profile demo --json",
+          "okx account positions --profile demo --json",
+          "okx market ticker BTC-USDT --profile demo --json",
+          "okx swap place-order --instId BTC-USDT-SWAP --tdMode cross --side sell --ordType limit --sz 0.002 --px 69944.0 --reduceOnly false --tpTriggerPx 68600.0 --tpOrdPx -1 --slTriggerPx 72800.0 --slOrdPx -1 --clOrdId run_20260320094743315_077-1 --tag mesh-fallback --profile demo --json"
+        ],
+        "intents": [
+          {
+            "command": "okx account balance --profile demo --json",
+            "args": [
+              "okx",
+              "account",
+              "balance",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "account",
+            "requiresWrite": false,
+            "reason": "Refresh account balance before materializing execution commands."
+          },
+          {
+            "command": "okx account positions --profile demo --json",
+            "args": [
+              "okx",
+              "account",
+              "positions",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "account",
+            "requiresWrite": false,
+            "reason": "Refresh position inventory before place-order execution."
+          },
+          {
+            "command": "okx market ticker BTC-USDT --profile demo --json",
+            "args": [
+              "okx",
+              "market",
+              "ticker",
+              "BTC-USDT",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "market",
+            "requiresWrite": false,
+            "reason": "Refresh BTC ticker for price-sensitive order materialization."
+          },
+          {
+            "command": "okx swap place-order --instId BTC-USDT-SWAP --tdMode cross --side sell --ordType limit --sz 0.002 --px 69944.0 --reduceOnly false --tpTriggerPx 68600.0 --tpOrdPx -1 --slTriggerPx 72800.0 --slOrdPx -1 --clOrdId run_20260320094743315_077-1 --tag mesh-fallback --profile demo --json",
+            "args": [
+              "okx",
+              "swap",
+              "place-order",
+              "--instId",
+              "BTC-USDT-SWAP",
+              "--tdMode",
+              "cross",
+              "--side",
+              "sell",
+              "--ordType",
+              "limit",
+              "--sz",
+              "0.002",
+              "--px",
+              "69944.0",
+              "--reduceOnly",
+              "false",
+              "--tpTriggerPx",
+              "68600.0",
+              "--tpOrdPx",
+              "-1",
+              "--slTriggerPx",
+              "72800.0",
+              "--slOrdPx",
+              "-1",
+              "--clOrdId",
+              "run_20260320094743315_077-1",
+              "--tag",
+              "mesh-fallback",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "swap",
+            "requiresWrite": true,
+            "reason": "Fallback hedge leg when proposal orderPlan is missing."
+          }
+        ],
+        "orderPlan": [
+          {
+            "kind": "swap-place-order",
+            "purpose": "Fallback hedge leg when proposal orderPlan is missing.",
+            "symbol": "BTC",
+            "targetNotionalUsd": 200,
+            "referencePx": 70000,
+            "params": {
+              "instId": "BTC-USDT-SWAP",
+              "tdMode": "cross",
+              "side": "sell",
+              "ordType": "limit",
+              "sz": "0.002",
+              "px": "69944.0",
+              "reduceOnly": false,
+              "tag": "mesh-fallback",
+              "clOrdId": "run_20260320094743315_077-1",
+              "tpTriggerPx": "68600.0",
+              "tpOrdPx": "-1",
+              "slTriggerPx": "72800.0",
+              "slOrdPx": "-1"
+            },
+            "riskTags": [
+              "fallback"
+            ]
+          }
+        ],
+        "swapOrderPlan": [
+          {
+            "kind": "swap-place-order",
+            "purpose": "Fallback hedge leg when proposal orderPlan is missing.",
+            "symbol": "BTC",
+            "targetNotionalUsd": 200,
+            "referencePx": 70000,
+            "params": {
+              "instId": "BTC-USDT-SWAP",
+              "tdMode": "cross",
+              "side": "sell",
+              "ordType": "limit",
+              "sz": "0.002",
+              "px": "69944.0",
+              "reduceOnly": false,
+              "tag": "mesh-fallback",
+              "clOrdId": "run_20260320094743315_077-1",
+              "tpTriggerPx": "68600.0",
+              "tpOrdPx": "-1",
+              "slTriggerPx": "72800.0",
+              "slOrdPx": "-1"
+            },
+            "riskTags": [
+              "fallback"
+            ]
+          }
+        ],
+        "optionOrderPlan": [],
+        "marketSnapshotSource": "okx-cli",
+        "marketSnapshotErrors": [],
+        "priceWarnings": [
+          "Ticker fallback used for BTC when computing order 1."
+        ]
+      },
+      "timestamp": "2026-03-20T09:48:16.856Z"
+    },
+    {
+      "skill": "official-executor",
+      "stage": "executor",
+      "goal": "对冲 BTC 风险，demo",
+      "summary": "Materialize policy-approved swap/option plans into executable OKX place-order commands.",
+      "facts": [
+        "Selected proposal: directional-net-hedge",
+        "Execution plane: demo",
+        "Order plan source: swap fallback model",
+        "Materialized swap writes: 1",
+        "Materialized option writes: 0",
+        "TP/SL support: enabled",
+        "Proposal rationale: Directly neutralize the net directional exposure with a focused perpetual hedge.",
+        "Legacy intents were detected; orderPlan fallback was used to keep execution deterministic."
+      ],
+      "constraints": {
+        "selectedProposal": "directional-net-hedge",
+        "requiredModules": [
+          "account",
+          "market",
+          "swap"
+        ],
+        "intentCount": 4,
+        "writeIntentCount": 1,
+        "swapWriteIntentCount": 1,
+        "optionWriteIntentCount": 0,
+        "drawdownTarget": "4%"
+      },
+      "proposal": [],
+      "risk": {
+        "score": 0.42,
+        "maxLoss": "Demo account PnL drift only",
+        "needsApproval": true,
+        "reasons": [
+          "Execution commands were materialized with concrete size, price, and TP/SL parameters."
+        ]
+      },
+      "permissions": {
+        "plane": "demo",
+        "officialWriteOnly": true,
+        "allowedModules": [
+          "account",
+          "market",
+          "swap"
+        ]
+      },
+      "handoff": "replay",
+      "metadata": {
+        "selectedProposal": "directional-net-hedge",
+        "commandPreview": [
+          "okx account balance --profile demo --json",
+          "okx account positions --profile demo --json",
+          "okx market ticker BTC-USDT --profile demo --json",
+          "okx swap place-order --instId BTC-USDT-SWAP --tdMode cross --side sell --ordType limit --sz 0.002 --px 69944.0 --reduceOnly false --tpTriggerPx 68600.0 --tpOrdPx -1 --slTriggerPx 72800.0 --slOrdPx -1 --clOrdId run_20260320094743315_077-1 --tag mesh-fallback --profile demo --json"
+        ],
+        "intents": [
+          {
+            "command": "okx account balance --profile demo --json",
+            "args": [
+              "okx",
+              "account",
+              "balance",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "account",
+            "requiresWrite": false,
+            "reason": "Refresh account balance before materializing execution commands."
+          },
+          {
+            "command": "okx account positions --profile demo --json",
+            "args": [
+              "okx",
+              "account",
+              "positions",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "account",
+            "requiresWrite": false,
+            "reason": "Refresh position inventory before place-order execution."
+          },
+          {
+            "command": "okx market ticker BTC-USDT --profile demo --json",
+            "args": [
+              "okx",
+              "market",
+              "ticker",
+              "BTC-USDT",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "market",
+            "requiresWrite": false,
+            "reason": "Refresh BTC ticker for price-sensitive order materialization."
+          },
+          {
+            "command": "okx swap place-order --instId BTC-USDT-SWAP --tdMode cross --side sell --ordType limit --sz 0.002 --px 69944.0 --reduceOnly false --tpTriggerPx 68600.0 --tpOrdPx -1 --slTriggerPx 72800.0 --slOrdPx -1 --clOrdId run_20260320094743315_077-1 --tag mesh-fallback --profile demo --json",
+            "args": [
+              "okx",
+              "swap",
+              "place-order",
+              "--instId",
+              "BTC-USDT-SWAP",
+              "--tdMode",
+              "cross",
+              "--side",
+              "sell",
+              "--ordType",
+              "limit",
+              "--sz",
+              "0.002",
+              "--px",
+              "69944.0",
+              "--reduceOnly",
+              "false",
+              "--tpTriggerPx",
+              "68600.0",
+              "--tpOrdPx",
+              "-1",
+              "--slTriggerPx",
+              "72800.0",
+              "--slOrdPx",
+              "-1",
+              "--clOrdId",
+              "run_20260320094743315_077-1",
+              "--tag",
+              "mesh-fallback",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "swap",
+            "requiresWrite": true,
+            "reason": "Fallback hedge leg when proposal orderPlan is missing."
+          }
+        ],
+        "orderPlan": [
+          {
+            "kind": "swap-place-order",
+            "purpose": "Fallback hedge leg when proposal orderPlan is missing.",
+            "symbol": "BTC",
+            "targetNotionalUsd": 200,
+            "referencePx": 70000,
+            "params": {
+              "instId": "BTC-USDT-SWAP",
+              "tdMode": "cross",
+              "side": "sell",
+              "ordType": "limit",
+              "sz": "0.002",
+              "px": "69944.0",
+              "reduceOnly": false,
+              "tag": "mesh-fallback",
+              "clOrdId": "run_20260320094743315_077-1",
+              "tpTriggerPx": "68600.0",
+              "tpOrdPx": "-1",
+              "slTriggerPx": "72800.0",
+              "slOrdPx": "-1"
+            },
+            "riskTags": [
+              "fallback"
+            ]
+          }
+        ],
+        "swapOrderPlan": [
+          {
+            "kind": "swap-place-order",
+            "purpose": "Fallback hedge leg when proposal orderPlan is missing.",
+            "symbol": "BTC",
+            "targetNotionalUsd": 200,
+            "referencePx": 70000,
+            "params": {
+              "instId": "BTC-USDT-SWAP",
+              "tdMode": "cross",
+              "side": "sell",
+              "ordType": "limit",
+              "sz": "0.002",
+              "px": "69944.0",
+              "reduceOnly": false,
+              "tag": "mesh-fallback",
+              "clOrdId": "run_20260320094743315_077-1",
+              "tpTriggerPx": "68600.0",
+              "tpOrdPx": "-1",
+              "slTriggerPx": "72800.0",
+              "slOrdPx": "-1"
+            },
+            "riskTags": [
+              "fallback"
+            ]
+          }
+        ],
+        "optionOrderPlan": [],
+        "marketSnapshotSource": "okx-cli",
+        "marketSnapshotErrors": [],
+        "priceWarnings": []
+      },
+      "timestamp": "2026-03-20T09:48:37.271Z"
+    },
+    {
+      "skill": "official-executor",
+      "stage": "executor",
+      "goal": "对冲 BTC 风险，demo",
+      "summary": "Materialize policy-approved swap/option plans into executable OKX place-order commands.",
+      "facts": [
+        "Selected proposal: directional-net-hedge",
+        "Execution plane: demo",
+        "Order plan source: swap fallback model",
+        "Materialized swap writes: 1",
+        "Materialized option writes: 0",
+        "TP/SL support: enabled",
+        "Proposal rationale: Directly neutralize the net directional exposure with a focused perpetual hedge.",
+        "Legacy intents were detected; orderPlan fallback was used to keep execution deterministic."
+      ],
+      "constraints": {
+        "selectedProposal": "directional-net-hedge",
+        "requiredModules": [
+          "account",
+          "market",
+          "swap"
+        ],
+        "intentCount": 4,
+        "writeIntentCount": 1,
+        "swapWriteIntentCount": 1,
+        "optionWriteIntentCount": 0,
+        "drawdownTarget": "4%"
+      },
+      "proposal": [],
+      "risk": {
+        "score": 0.42,
+        "maxLoss": "Demo account PnL drift only",
+        "needsApproval": true,
+        "reasons": [
+          "Execution commands were materialized with concrete size, price, and TP/SL parameters."
+        ]
+      },
+      "permissions": {
+        "plane": "demo",
+        "officialWriteOnly": true,
+        "allowedModules": [
+          "account",
+          "market",
+          "swap"
+        ]
+      },
+      "handoff": "replay",
+      "metadata": {
+        "selectedProposal": "directional-net-hedge",
+        "commandPreview": [
+          "okx account balance --profile demo --json",
+          "okx account positions --profile demo --json",
+          "okx market ticker BTC-USDT --profile demo --json",
+          "okx swap place-order --instId BTC-USDT-SWAP --tdMode cross --side sell --ordType limit --sz 0.002 --px 69944.0 --reduceOnly false --tpTriggerPx 68600.0 --tpOrdPx -1 --slTriggerPx 72800.0 --slOrdPx -1 --clOrdId run_20260320094743315_077-1 --tag mesh-fallback --profile demo --json"
+        ],
+        "intents": [
+          {
+            "command": "okx account balance --profile demo --json",
+            "args": [
+              "okx",
+              "account",
+              "balance",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "account",
+            "requiresWrite": false,
+            "reason": "Refresh account balance before materializing execution commands."
+          },
+          {
+            "command": "okx account positions --profile demo --json",
+            "args": [
+              "okx",
+              "account",
+              "positions",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "account",
+            "requiresWrite": false,
+            "reason": "Refresh position inventory before place-order execution."
+          },
+          {
+            "command": "okx market ticker BTC-USDT --profile demo --json",
+            "args": [
+              "okx",
+              "market",
+              "ticker",
+              "BTC-USDT",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "market",
+            "requiresWrite": false,
+            "reason": "Refresh BTC ticker for price-sensitive order materialization."
+          },
+          {
+            "command": "okx swap place-order --instId BTC-USDT-SWAP --tdMode cross --side sell --ordType limit --sz 0.002 --px 69944.0 --reduceOnly false --tpTriggerPx 68600.0 --tpOrdPx -1 --slTriggerPx 72800.0 --slOrdPx -1 --clOrdId run_20260320094743315_077-1 --tag mesh-fallback --profile demo --json",
+            "args": [
+              "okx",
+              "swap",
+              "place-order",
+              "--instId",
+              "BTC-USDT-SWAP",
+              "--tdMode",
+              "cross",
+              "--side",
+              "sell",
+              "--ordType",
+              "limit",
+              "--sz",
+              "0.002",
+              "--px",
+              "69944.0",
+              "--reduceOnly",
+              "false",
+              "--tpTriggerPx",
+              "68600.0",
+              "--tpOrdPx",
+              "-1",
+              "--slTriggerPx",
+              "72800.0",
+              "--slOrdPx",
+              "-1",
+              "--clOrdId",
+              "run_20260320094743315_077-1",
+              "--tag",
+              "mesh-fallback",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "swap",
+            "requiresWrite": true,
+            "reason": "Fallback hedge leg when proposal orderPlan is missing."
+          }
+        ],
+        "orderPlan": [
+          {
+            "kind": "swap-place-order",
+            "purpose": "Fallback hedge leg when proposal orderPlan is missing.",
+            "symbol": "BTC",
+            "targetNotionalUsd": 200,
+            "referencePx": 70000,
+            "params": {
+              "instId": "BTC-USDT-SWAP",
+              "tdMode": "cross",
+              "side": "sell",
+              "ordType": "limit",
+              "sz": "0.002",
+              "px": "69944.0",
+              "reduceOnly": false,
+              "tag": "mesh-fallback",
+              "clOrdId": "run_20260320094743315_077-1",
+              "tpTriggerPx": "68600.0",
+              "tpOrdPx": "-1",
+              "slTriggerPx": "72800.0",
+              "slOrdPx": "-1"
+            },
+            "riskTags": [
+              "fallback"
+            ]
+          }
+        ],
+        "swapOrderPlan": [
+          {
+            "kind": "swap-place-order",
+            "purpose": "Fallback hedge leg when proposal orderPlan is missing.",
+            "symbol": "BTC",
+            "targetNotionalUsd": 200,
+            "referencePx": 70000,
+            "params": {
+              "instId": "BTC-USDT-SWAP",
+              "tdMode": "cross",
+              "side": "sell",
+              "ordType": "limit",
+              "sz": "0.002",
+              "px": "69944.0",
+              "reduceOnly": false,
+              "tag": "mesh-fallback",
+              "clOrdId": "run_20260320094743315_077-1",
+              "tpTriggerPx": "68600.0",
+              "tpOrdPx": "-1",
+              "slTriggerPx": "72800.0",
+              "slOrdPx": "-1"
+            },
+            "riskTags": [
+              "fallback"
+            ]
+          }
+        ],
+        "optionOrderPlan": [],
+        "marketSnapshotSource": "okx-cli",
+        "marketSnapshotErrors": [],
+        "priceWarnings": []
+      },
+      "timestamp": "2026-03-20T09:48:54.352Z"
+    },
+    {
+      "skill": "official-executor",
+      "stage": "executor",
+      "goal": "对冲 BTC 风险，demo",
+      "summary": "Materialize policy-approved swap/option plans into executable OKX place-order commands.",
+      "facts": [
+        "Selected proposal: directional-net-hedge",
+        "Execution plane: demo",
+        "Order plan source: swap fallback model",
+        "Materialized swap writes: 1",
+        "Materialized option writes: 0",
+        "TP/SL support: enabled",
+        "Proposal rationale: Directly neutralize the net directional exposure with a focused perpetual hedge.",
+        "Legacy intents were detected; orderPlan fallback was used to keep execution deterministic."
+      ],
+      "constraints": {
+        "selectedProposal": "directional-net-hedge",
+        "requiredModules": [
+          "account",
+          "market",
+          "swap"
+        ],
+        "intentCount": 4,
+        "writeIntentCount": 1,
+        "swapWriteIntentCount": 1,
+        "optionWriteIntentCount": 0,
+        "drawdownTarget": "4%"
+      },
+      "proposal": [],
+      "risk": {
+        "score": 0.42,
+        "maxLoss": "Demo account PnL drift only",
+        "needsApproval": true,
+        "reasons": [
+          "Execution commands were materialized with concrete size, price, and TP/SL parameters."
+        ]
+      },
+      "permissions": {
+        "plane": "demo",
+        "officialWriteOnly": true,
+        "allowedModules": [
+          "account",
+          "market",
+          "swap"
+        ]
+      },
+      "handoff": "replay",
+      "metadata": {
+        "selectedProposal": "directional-net-hedge",
+        "commandPreview": [
+          "okx account balance --profile demo --json",
+          "okx account positions --profile demo --json",
+          "okx market ticker BTC-USDT --profile demo --json",
+          "okx swap place-order --instId BTC-USDT-SWAP --tdMode cross --side sell --ordType limit --sz 0.002 --px 69944.0 --reduceOnly false --tpTriggerPx 68600.0 --tpOrdPx -1 --slTriggerPx 72800.0 --slOrdPx -1 --clOrdId run_20260320094743315_077-1 --tag mesh-fallback --profile demo --json"
+        ],
+        "intents": [
+          {
+            "command": "okx account balance --profile demo --json",
+            "args": [
+              "okx",
+              "account",
+              "balance",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "account",
+            "requiresWrite": false,
+            "reason": "Refresh account balance before materializing execution commands."
+          },
+          {
+            "command": "okx account positions --profile demo --json",
+            "args": [
+              "okx",
+              "account",
+              "positions",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "account",
+            "requiresWrite": false,
+            "reason": "Refresh position inventory before place-order execution."
+          },
+          {
+            "command": "okx market ticker BTC-USDT --profile demo --json",
+            "args": [
+              "okx",
+              "market",
+              "ticker",
+              "BTC-USDT",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "market",
+            "requiresWrite": false,
+            "reason": "Refresh BTC ticker for price-sensitive order materialization."
+          },
+          {
+            "command": "okx swap place-order --instId BTC-USDT-SWAP --tdMode cross --side sell --ordType limit --sz 0.002 --px 69944.0 --reduceOnly false --tpTriggerPx 68600.0 --tpOrdPx -1 --slTriggerPx 72800.0 --slOrdPx -1 --clOrdId run_20260320094743315_077-1 --tag mesh-fallback --profile demo --json",
+            "args": [
+              "okx",
+              "swap",
+              "place-order",
+              "--instId",
+              "BTC-USDT-SWAP",
+              "--tdMode",
+              "cross",
+              "--side",
+              "sell",
+              "--ordType",
+              "limit",
+              "--sz",
+              "0.002",
+              "--px",
+              "69944.0",
+              "--reduceOnly",
+              "false",
+              "--tpTriggerPx",
+              "68600.0",
+              "--tpOrdPx",
+              "-1",
+              "--slTriggerPx",
+              "72800.0",
+              "--slOrdPx",
+              "-1",
+              "--clOrdId",
+              "run_20260320094743315_077-1",
+              "--tag",
+              "mesh-fallback",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "swap",
+            "requiresWrite": true,
+            "reason": "Fallback hedge leg when proposal orderPlan is missing."
+          }
+        ],
+        "orderPlan": [
+          {
+            "kind": "swap-place-order",
+            "purpose": "Fallback hedge leg when proposal orderPlan is missing.",
+            "symbol": "BTC",
+            "targetNotionalUsd": 200,
+            "referencePx": 70000,
+            "params": {
+              "instId": "BTC-USDT-SWAP",
+              "tdMode": "cross",
+              "side": "sell",
+              "ordType": "limit",
+              "sz": "0.002",
+              "px": "69944.0",
+              "reduceOnly": false,
+              "tag": "mesh-fallback",
+              "clOrdId": "run_20260320094743315_077-1",
+              "tpTriggerPx": "68600.0",
+              "tpOrdPx": "-1",
+              "slTriggerPx": "72800.0",
+              "slOrdPx": "-1"
+            },
+            "riskTags": [
+              "fallback"
+            ]
+          }
+        ],
+        "swapOrderPlan": [
+          {
+            "kind": "swap-place-order",
+            "purpose": "Fallback hedge leg when proposal orderPlan is missing.",
+            "symbol": "BTC",
+            "targetNotionalUsd": 200,
+            "referencePx": 70000,
+            "params": {
+              "instId": "BTC-USDT-SWAP",
+              "tdMode": "cross",
+              "side": "sell",
+              "ordType": "limit",
+              "sz": "0.002",
+              "px": "69944.0",
+              "reduceOnly": false,
+              "tag": "mesh-fallback",
+              "clOrdId": "run_20260320094743315_077-1",
+              "tpTriggerPx": "68600.0",
+              "tpOrdPx": "-1",
+              "slTriggerPx": "72800.0",
+              "slOrdPx": "-1"
+            },
+            "riskTags": [
+              "fallback"
+            ]
+          }
+        ],
+        "optionOrderPlan": [],
+        "marketSnapshotSource": "okx-cli",
+        "marketSnapshotErrors": [],
+        "priceWarnings": []
+      },
+      "timestamp": "2026-03-20T09:49:02.131Z"
+    }
+  ],
+  "executions": [
+    {
+      "requestedAt": "2026-03-20T09:47:47.816Z",
+      "mode": "execute",
+      "plane": "demo",
+      "proposal": "directional-net-hedge",
+      "approvalProvided": true,
+      "status": "blocked",
+      "results": [
+        {
+          "intent": {
+            "command": "okx account balance --profile demo --json",
+            "args": [
+              "okx",
+              "account",
+              "balance",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "account",
+            "requiresWrite": false,
+            "reason": "Refresh account balance before materializing execution commands."
+          },
+          "ok": false,
+          "exitCode": null,
+          "stdout": "",
+          "stderr": "okx CLI is not available on PATH, cannot execute intents",
+          "skipped": true,
+          "dryRun": false
+        },
+        {
+          "intent": {
+            "command": "okx account positions --profile demo --json",
+            "args": [
+              "okx",
+              "account",
+              "positions",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "account",
+            "requiresWrite": false,
+            "reason": "Refresh position inventory before place-order execution."
+          },
+          "ok": false,
+          "exitCode": null,
+          "stdout": "",
+          "stderr": "okx CLI is not available on PATH, cannot execute intents",
+          "skipped": true,
+          "dryRun": false
+        },
+        {
+          "intent": {
+            "command": "okx market ticker BTC-USDT --profile demo --json",
+            "args": [
+              "okx",
+              "market",
+              "ticker",
+              "BTC-USDT",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "market",
+            "requiresWrite": false,
+            "reason": "Refresh BTC ticker for price-sensitive order materialization."
+          },
+          "ok": false,
+          "exitCode": null,
+          "stdout": "",
+          "stderr": "okx CLI is not available on PATH, cannot execute intents",
+          "skipped": true,
+          "dryRun": false
+        },
+        {
+          "intent": {
+            "command": "okx swap place-order --instId BTC-USDT-SWAP --tdMode cross --side sell --ordType limit --sz 0.002 --px 69944.0 --reduceOnly false --tpTriggerPx 68600.0 --tpOrdPx -1 --slTriggerPx 72800.0 --slOrdPx -1 --clOrdId run_20260320094743315_077-1 --tag mesh-fallback --profile demo --json",
+            "args": [
+              "okx",
+              "swap",
+              "place-order",
+              "--instId",
+              "BTC-USDT-SWAP",
+              "--tdMode",
+              "cross",
+              "--side",
+              "sell",
+              "--ordType",
+              "limit",
+              "--sz",
+              "0.002",
+              "--px",
+              "69944.0",
+              "--reduceOnly",
+              "false",
+              "--tpTriggerPx",
+              "68600.0",
+              "--tpOrdPx",
+              "-1",
+              "--slTriggerPx",
+              "72800.0",
+              "--slOrdPx",
+              "-1",
+              "--clOrdId",
+              "run_20260320094743315_077-1",
+              "--tag",
+              "mesh-fallback",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "swap",
+            "requiresWrite": true,
+            "reason": "Fallback hedge leg when proposal orderPlan is missing."
+          },
+          "ok": false,
+          "exitCode": null,
+          "stdout": "",
+          "stderr": "okx CLI is not available on PATH, cannot execute intents",
+          "skipped": true,
+          "dryRun": false
+        }
+      ],
+      "blockedReason": "okx CLI is not available on PATH, cannot execute intents"
+    },
+    {
+      "requestedAt": "2026-03-20T09:48:16.985Z",
+      "mode": "execute",
+      "plane": "demo",
+      "proposal": "directional-net-hedge",
+      "approvalProvided": true,
+      "status": "blocked",
+      "results": [
+        {
+          "intent": {
+            "command": "okx account balance --profile demo --json",
+            "args": [
+              "okx",
+              "account",
+              "balance",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "account",
+            "requiresWrite": false,
+            "reason": "Refresh account balance before materializing execution commands."
+          },
+          "ok": false,
+          "exitCode": null,
+          "stdout": "",
+          "stderr": "available USD-equivalent balance could not be parsed from account payload",
+          "skipped": true,
+          "dryRun": false
+        },
+        {
+          "intent": {
+            "command": "okx account positions --profile demo --json",
+            "args": [
+              "okx",
+              "account",
+              "positions",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "account",
+            "requiresWrite": false,
+            "reason": "Refresh position inventory before place-order execution."
+          },
+          "ok": false,
+          "exitCode": null,
+          "stdout": "",
+          "stderr": "available USD-equivalent balance could not be parsed from account payload",
+          "skipped": true,
+          "dryRun": false
+        },
+        {
+          "intent": {
+            "command": "okx market ticker BTC-USDT --profile demo --json",
+            "args": [
+              "okx",
+              "market",
+              "ticker",
+              "BTC-USDT",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "market",
+            "requiresWrite": false,
+            "reason": "Refresh BTC ticker for price-sensitive order materialization."
+          },
+          "ok": false,
+          "exitCode": null,
+          "stdout": "",
+          "stderr": "available USD-equivalent balance could not be parsed from account payload",
+          "skipped": true,
+          "dryRun": false
+        },
+        {
+          "intent": {
+            "command": "okx swap place-order --instId BTC-USDT-SWAP --tdMode cross --side sell --ordType limit --sz 0.002 --px 69944.0 --reduceOnly false --tpTriggerPx 68600.0 --tpOrdPx -1 --slTriggerPx 72800.0 --slOrdPx -1 --clOrdId run_20260320094743315_077-1 --tag mesh-fallback --profile demo --json",
+            "args": [
+              "okx",
+              "swap",
+              "place-order",
+              "--instId",
+              "BTC-USDT-SWAP",
+              "--tdMode",
+              "cross",
+              "--side",
+              "sell",
+              "--ordType",
+              "limit",
+              "--sz",
+              "0.002",
+              "--px",
+              "69944.0",
+              "--reduceOnly",
+              "false",
+              "--tpTriggerPx",
+              "68600.0",
+              "--tpOrdPx",
+              "-1",
+              "--slTriggerPx",
+              "72800.0",
+              "--slOrdPx",
+              "-1",
+              "--clOrdId",
+              "run_20260320094743315_077-1",
+              "--tag",
+              "mesh-fallback",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "swap",
+            "requiresWrite": true,
+            "reason": "Fallback hedge leg when proposal orderPlan is missing."
+          },
+          "ok": false,
+          "exitCode": null,
+          "stdout": "",
+          "stderr": "available USD-equivalent balance could not be parsed from account payload",
+          "skipped": true,
+          "dryRun": false
+        }
+      ],
+      "blockedReason": "available USD-equivalent balance could not be parsed from account payload"
+    },
+    {
+      "requestedAt": "2026-03-20T09:48:39.328Z",
+      "mode": "execute",
+      "plane": "demo",
+      "proposal": "directional-net-hedge",
+      "approvalProvided": true,
+      "status": "executed",
+      "results": [
+        {
+          "intent": {
+            "command": "okx account balance --profile demo --json",
+            "args": [
+              "okx",
+              "account",
+              "balance",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "account",
+            "requiresWrite": false,
+            "reason": "Refresh account balance before materializing execution commands."
+          },
+          "ok": true,
+          "exitCode": 0,
+          "stdout": "{\"code\":\"0\",\"data\":[{\"details\":[{\"ccy\":\"USDT\",\"availBal\":\"100000\",\"usdEq\":\"100000\"}]}]}\n",
+          "stderr": "",
+          "skipped": false,
+          "dryRun": false,
+          "attempt": 1
+        },
+        {
+          "intent": {
+            "command": "okx account positions --profile demo --json",
+            "args": [
+              "okx",
+              "account",
+              "positions",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "account",
+            "requiresWrite": false,
+            "reason": "Refresh position inventory before place-order execution."
+          },
+          "ok": true,
+          "exitCode": 0,
+          "stdout": "{\"code\":\"0\",\"data\":[]}\n",
+          "stderr": "",
+          "skipped": false,
+          "dryRun": false,
+          "attempt": 1
+        },
+        {
+          "intent": {
+            "command": "okx market ticker BTC-USDT --profile demo --json",
+            "args": [
+              "okx",
+              "market",
+              "ticker",
+              "BTC-USDT",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "market",
+            "requiresWrite": false,
+            "reason": "Refresh BTC ticker for price-sensitive order materialization."
+          },
+          "ok": true,
+          "exitCode": 0,
+          "stdout": "{\"code\":\"0\",\"data\":[{\"last\":\"70000\",\"open24h\":\"69000\"}]}\n",
+          "stderr": "",
+          "skipped": false,
+          "dryRun": false,
+          "attempt": 1
+        },
+        {
+          "intent": {
+            "command": "okx swap place-order --instId BTC-USDT-SWAP --tdMode cross --side sell --ordType limit --sz 0.002 --px 69944.0 --reduceOnly false --tpTriggerPx 68600.0 --tpOrdPx -1 --slTriggerPx 72800.0 --slOrdPx -1 --clOrdId run_20260320094743315_077-1 --tag mesh-fallback --profile demo --json",
+            "args": [
+              "okx",
+              "swap",
+              "place-order",
+              "--instId",
+              "BTC-USDT-SWAP",
+              "--tdMode",
+              "cross",
+              "--side",
+              "sell",
+              "--ordType",
+              "limit",
+              "--sz",
+              "0.002",
+              "--px",
+              "69944.0",
+              "--reduceOnly",
+              "false",
+              "--tpTriggerPx",
+              "68600.0",
+              "--tpOrdPx",
+              "-1",
+              "--slTriggerPx",
+              "72800.0",
+              "--slOrdPx",
+              "-1",
+              "--clOrdId",
+              "run_20260320094743315_077-1",
+              "--tag",
+              "mesh-fallback",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "swap",
+            "requiresWrite": true,
+            "reason": "Fallback hedge leg when proposal orderPlan is missing."
+          },
+          "ok": false,
+          "exitCode": 1,
+          "stdout": "",
+          "stderr": "network timeout while placing order\n",
+          "skipped": false,
+          "dryRun": false,
+          "attempt": 1,
+          "errorCategory": "retryable",
+          "retryScheduled": true
+        },
+        {
+          "intent": {
+            "command": "okx swap place-order --instId BTC-USDT-SWAP --tdMode cross --side sell --ordType limit --sz 0.002 --px 69944.0 --reduceOnly false --tpTriggerPx 68600.0 --tpOrdPx -1 --slTriggerPx 72800.0 --slOrdPx -1 --clOrdId run_20260320094743315_077-1 --tag mesh-fallback --profile demo --json",
+            "args": [
+              "okx",
+              "swap",
+              "place-order",
+              "--instId",
+              "BTC-USDT-SWAP",
+              "--tdMode",
+              "cross",
+              "--side",
+              "sell",
+              "--ordType",
+              "limit",
+              "--sz",
+              "0.002",
+              "--px",
+              "69944.0",
+              "--reduceOnly",
+              "false",
+              "--tpTriggerPx",
+              "68600.0",
+              "--tpOrdPx",
+              "-1",
+              "--slTriggerPx",
+              "72800.0",
+              "--slOrdPx",
+              "-1",
+              "--clOrdId",
+              "run_20260320094743315_077-1",
+              "--tag",
+              "mesh-fallback",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "swap",
+            "requiresWrite": true,
+            "reason": "Fallback hedge leg when proposal orderPlan is missing."
+          },
+          "ok": true,
+          "exitCode": 0,
+          "stdout": "{\"code\":\"0\",\"data\":[{\"sCode\":\"0\",\"sMsg\":\"ok\"}]}\n",
+          "stderr": "",
+          "skipped": false,
+          "dryRun": false,
+          "attempt": 2
+        }
+      ]
+    },
+    {
+      "requestedAt": "2026-03-20T09:48:54.411Z",
+      "mode": "execute",
+      "plane": "demo",
+      "proposal": "directional-net-hedge",
+      "approvalProvided": true,
+      "status": "failed",
+      "results": [
+        {
+          "intent": {
+            "command": "okx account balance --profile demo --json",
+            "args": [
+              "okx",
+              "account",
+              "balance",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "account",
+            "requiresWrite": false,
+            "reason": "Refresh account balance before materializing execution commands."
+          },
+          "ok": true,
+          "exitCode": 0,
+          "stdout": "{\"code\":\"0\",\"data\":[{\"details\":[{\"ccy\":\"USDT\",\"availBal\":\"100000\",\"usdEq\":\"100000\"}]}]}\n",
+          "stderr": "",
+          "skipped": false,
+          "dryRun": false,
+          "attempt": 1
+        },
+        {
+          "intent": {
+            "command": "okx account positions --profile demo --json",
+            "args": [
+              "okx",
+              "account",
+              "positions",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "account",
+            "requiresWrite": false,
+            "reason": "Refresh position inventory before place-order execution."
+          },
+          "ok": true,
+          "exitCode": 0,
+          "stdout": "{\"code\":\"0\",\"data\":[]}\n",
+          "stderr": "",
+          "skipped": false,
+          "dryRun": false,
+          "attempt": 1
+        },
+        {
+          "intent": {
+            "command": "okx market ticker BTC-USDT --profile demo --json",
+            "args": [
+              "okx",
+              "market",
+              "ticker",
+              "BTC-USDT",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "market",
+            "requiresWrite": false,
+            "reason": "Refresh BTC ticker for price-sensitive order materialization."
+          },
+          "ok": true,
+          "exitCode": 0,
+          "stdout": "{\"code\":\"0\",\"data\":[{\"last\":\"70000\",\"open24h\":\"69000\"}]}\n",
+          "stderr": "",
+          "skipped": false,
+          "dryRun": false,
+          "attempt": 1
+        },
+        {
+          "intent": {
+            "command": "okx swap place-order --instId BTC-USDT-SWAP --tdMode cross --side sell --ordType limit --sz 0.002 --px 69944.0 --reduceOnly false --tpTriggerPx 68600.0 --tpOrdPx -1 --slTriggerPx 72800.0 --slOrdPx -1 --clOrdId run_20260320094743315_077-1 --tag mesh-fallback --profile demo --json",
+            "args": [
+              "okx",
+              "swap",
+              "place-order",
+              "--instId",
+              "BTC-USDT-SWAP",
+              "--tdMode",
+              "cross",
+              "--side",
+              "sell",
+              "--ordType",
+              "limit",
+              "--sz",
+              "0.002",
+              "--px",
+              "69944.0",
+              "--reduceOnly",
+              "false",
+              "--tpTriggerPx",
+              "68600.0",
+              "--tpOrdPx",
+              "-1",
+              "--slTriggerPx",
+              "72800.0",
+              "--slOrdPx",
+              "-1",
+              "--clOrdId",
+              "run_20260320094743315_077-1",
+              "--tag",
+              "mesh-fallback",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "swap",
+            "requiresWrite": true,
+            "reason": "Fallback hedge leg when proposal orderPlan is missing."
+          },
+          "ok": false,
+          "exitCode": 1,
+          "stdout": "",
+          "stderr": "insufficient balance\n",
+          "skipped": false,
+          "dryRun": false,
+          "attempt": 1,
+          "errorCategory": "fatal"
+        }
+      ]
+    },
+    {
+      "requestedAt": "2026-03-20T09:49:02.190Z",
+      "mode": "execute",
+      "plane": "demo",
+      "proposal": "directional-net-hedge",
+      "approvalProvided": true,
+      "status": "failed",
+      "results": [
+        {
+          "intent": {
+            "command": "okx account balance --profile demo --json",
+            "args": [
+              "okx",
+              "account",
+              "balance",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "account",
+            "requiresWrite": false,
+            "reason": "Refresh account balance before materializing execution commands."
+          },
+          "ok": true,
+          "exitCode": 0,
+          "stdout": "{\"code\":\"0\",\"data\":[{\"details\":[{\"ccy\":\"USDT\",\"availBal\":\"100000\",\"usdEq\":\"100000\"}]}]}\n",
+          "stderr": "",
+          "skipped": false,
+          "dryRun": false,
+          "attempt": 1
+        },
+        {
+          "intent": {
+            "command": "okx account positions --profile demo --json",
+            "args": [
+              "okx",
+              "account",
+              "positions",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "account",
+            "requiresWrite": false,
+            "reason": "Refresh position inventory before place-order execution."
+          },
+          "ok": true,
+          "exitCode": 0,
+          "stdout": "{\"code\":\"0\",\"data\":[]}\n",
+          "stderr": "",
+          "skipped": false,
+          "dryRun": false,
+          "attempt": 1
+        },
+        {
+          "intent": {
+            "command": "okx market ticker BTC-USDT --profile demo --json",
+            "args": [
+              "okx",
+              "market",
+              "ticker",
+              "BTC-USDT",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "market",
+            "requiresWrite": false,
+            "reason": "Refresh BTC ticker for price-sensitive order materialization."
+          },
+          "ok": true,
+          "exitCode": 0,
+          "stdout": "{\"code\":\"0\",\"data\":[{\"last\":\"70000\",\"open24h\":\"69000\"}]}\n",
+          "stderr": "",
+          "skipped": false,
+          "dryRun": false,
+          "attempt": 1
+        },
+        {
+          "intent": {
+            "command": "okx swap place-order --instId BTC-USDT-SWAP --tdMode cross --side sell --ordType limit --sz 0.002 --px 69944.0 --reduceOnly false --tpTriggerPx 68600.0 --tpOrdPx -1 --slTriggerPx 72800.0 --slOrdPx -1 --clOrdId run_20260320094743315_077-1 --tag mesh-fallback --profile demo --json",
+            "args": [
+              "okx",
+              "swap",
+              "place-order",
+              "--instId",
+              "BTC-USDT-SWAP",
+              "--tdMode",
+              "cross",
+              "--side",
+              "sell",
+              "--ordType",
+              "limit",
+              "--sz",
+              "0.002",
+              "--px",
+              "69944.0",
+              "--reduceOnly",
+              "false",
+              "--tpTriggerPx",
+              "68600.0",
+              "--tpOrdPx",
+              "-1",
+              "--slTriggerPx",
+              "72800.0",
+              "--slOrdPx",
+              "-1",
+              "--clOrdId",
+              "run_20260320094743315_077-1",
+              "--tag",
+              "mesh-fallback",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "swap",
+            "requiresWrite": true,
+            "reason": "Fallback hedge leg when proposal orderPlan is missing."
+          },
+          "ok": false,
+          "exitCode": 1,
+          "stdout": "",
+          "stderr": "insufficient balance\n",
+          "skipped": false,
+          "dryRun": false,
+          "attempt": 1,
+          "errorCategory": "fatal"
+        }
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "at": "2026-03-20T09:48:37.323Z",
+      "runId": "run_20260320094743315_077",
+      "proposal": "directional-net-hedge",
+      "intent": {
+        "command": "okx swap place-order --instId BTC-USDT-SWAP --tdMode cross --side sell --ordType limit --sz 0.002 --px 69944.0 --reduceOnly false --tpTriggerPx 68600.0 --tpOrdPx -1 --slTriggerPx 72800.0 --slOrdPx -1 --clOrdId run_20260320094743315_077-1 --tag mesh-fallback --profile demo --json",
+        "args": [
+          "okx",
+          "swap",
+          "place-order",
+          "--instId",
+          "BTC-USDT-SWAP",
+          "--tdMode",
+          "cross",
+          "--side",
+          "sell",
+          "--ordType",
+          "limit",
+          "--sz",
+          "0.002",
+          "--px",
+          "69944.0",
+          "--reduceOnly",
+          "false",
+          "--tpTriggerPx",
+          "68600.0",
+          "--tpOrdPx",
+          "-1",
+          "--slTriggerPx",
+          "72800.0",
+          "--slOrdPx",
+          "-1",
+          "--clOrdId",
+          "run_20260320094743315_077-1",
+          "--tag",
+          "mesh-fallback",
+          "--profile",
+          "demo",
+          "--json"
+        ],
+        "module": "swap",
+        "requiresWrite": true,
+        "reason": "Fallback hedge leg when proposal orderPlan is missing."
+      },
+      "module": "swap",
+      "exitCode": 1,
+      "category": "retryable",
+      "message": "network timeout while placing order",
+      "attempt": 1,
+      "retried": true
+    },
+    {
+      "at": "2026-03-20T09:48:54.411Z",
+      "runId": "run_20260320094743315_077",
+      "proposal": "directional-net-hedge",
+      "intent": {
+        "command": "okx swap place-order --instId BTC-USDT-SWAP --tdMode cross --side sell --ordType limit --sz 0.002 --px 69944.0 --reduceOnly false --tpTriggerPx 68600.0 --tpOrdPx -1 --slTriggerPx 72800.0 --slOrdPx -1 --clOrdId run_20260320094743315_077-1 --tag mesh-fallback --profile demo --json",
+        "args": [
+          "okx",
+          "swap",
+          "place-order",
+          "--instId",
+          "BTC-USDT-SWAP",
+          "--tdMode",
+          "cross",
+          "--side",
+          "sell",
+          "--ordType",
+          "limit",
+          "--sz",
+          "0.002",
+          "--px",
+          "69944.0",
+          "--reduceOnly",
+          "false",
+          "--tpTriggerPx",
+          "68600.0",
+          "--tpOrdPx",
+          "-1",
+          "--slTriggerPx",
+          "72800.0",
+          "--slOrdPx",
+          "-1",
+          "--clOrdId",
+          "run_20260320094743315_077-1",
+          "--tag",
+          "mesh-fallback",
+          "--profile",
+          "demo",
+          "--json"
+        ],
+        "module": "swap",
+        "requiresWrite": true,
+        "reason": "Fallback hedge leg when proposal orderPlan is missing."
+      },
+      "module": "swap",
+      "exitCode": 1,
+      "category": "fatal",
+      "message": "insufficient balance",
+      "attempt": 1,
+      "retried": false
+    },
+    {
+      "at": "2026-03-20T09:49:02.190Z",
+      "runId": "run_20260320094743315_077",
+      "proposal": "directional-net-hedge",
+      "intent": {
+        "command": "okx swap place-order --instId BTC-USDT-SWAP --tdMode cross --side sell --ordType limit --sz 0.002 --px 69944.0 --reduceOnly false --tpTriggerPx 68600.0 --tpOrdPx -1 --slTriggerPx 72800.0 --slOrdPx -1 --clOrdId run_20260320094743315_077-1 --tag mesh-fallback --profile demo --json",
+        "args": [
+          "okx",
+          "swap",
+          "place-order",
+          "--instId",
+          "BTC-USDT-SWAP",
+          "--tdMode",
+          "cross",
+          "--side",
+          "sell",
+          "--ordType",
+          "limit",
+          "--sz",
+          "0.002",
+          "--px",
+          "69944.0",
+          "--reduceOnly",
+          "false",
+          "--tpTriggerPx",
+          "68600.0",
+          "--tpOrdPx",
+          "-1",
+          "--slTriggerPx",
+          "72800.0",
+          "--slOrdPx",
+          "-1",
+          "--clOrdId",
+          "run_20260320094743315_077-1",
+          "--tag",
+          "mesh-fallback",
+          "--profile",
+          "demo",
+          "--json"
+        ],
+        "module": "swap",
+        "requiresWrite": true,
+        "reason": "Fallback hedge leg when proposal orderPlan is missing."
+      },
+      "module": "swap",
+      "exitCode": 1,
+      "category": "fatal",
+      "message": "insufficient balance",
+      "attempt": 1,
+      "retried": false
+    }
+  ],
+  "policyDecision": {
+    "outcome": "approved",
+    "reasons": [
+      "policy gate approved this proposal",
+      "order notional=200.00 singleLimit=50000.00 totalLimit=150000.00"
+    ],
+    "proposal": "directional-net-hedge",
+    "plane": "demo",
+    "executeRequested": true,
+    "approvalProvided": true,
+    "evaluatedAt": "2026-03-20T09:49:02.177Z"
+  }
+}

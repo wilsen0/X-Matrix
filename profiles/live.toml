@@ -1,0 +1,4 @@
+# Placeholder profile for future OKX CLI live wiring.
+[profile]
+name = "live"
+mode = "live"

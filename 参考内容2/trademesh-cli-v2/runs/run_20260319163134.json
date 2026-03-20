@@ -1,0 +1,547 @@
+{
+  "id": "run_20260319163134",
+  "goal": "hedge my BTC downside with demo first",
+  "createdAt": "2026-03-19T16:31:34.192Z",
+  "status": "dry_run",
+  "chain": [
+    "portfolio-xray",
+    "market-scan",
+    "hedge-planner",
+    "policy-gate",
+    "official-executor",
+    "replay"
+  ],
+  "steps": [
+    {
+      "skill": "portfolio-xray",
+      "summary": "Summarize balance, positions, fee drag, and concentration."
+    },
+    {
+      "skill": "market-scan",
+      "summary": "Read market state, volatility, and liquidity context."
+    },
+    {
+      "skill": "hedge-planner",
+      "summary": "Generate hedge alternatives with explicit trade-offs."
+    },
+    {
+      "skill": "policy-gate",
+      "summary": "Block unsafe writes and enforce demo-first or approval rules."
+    },
+    {
+      "skill": "official-executor",
+      "summary": "Translate approved proposals into official okx CLI intents."
+    },
+    {
+      "skill": "replay",
+      "summary": "Persist the trace for audit and demo replay."
+    }
+  ],
+  "facts": [
+    "Concentration risk should be computed before proposing a hedge.",
+    "Market context should be read before any execution proposal.",
+    "Write operations should be delegated to official executor only."
+  ],
+  "constraints": {
+    "mustDemoFirst": true,
+    "officialWriteOnly": true
+  },
+  "proposals": [
+    {
+      "name": "light-perp-hedge",
+      "reason": "Fast downside protection with lower upfront cost than options.",
+      "estimatedCost": "funding + spread",
+      "estimatedProtection": "partial",
+      "requiredModules": [
+        "account",
+        "market",
+        "swap"
+      ],
+      "intents": [
+        {
+          "module": "account",
+          "requiresWrite": false,
+          "reason": "Read balances before risk analysis.",
+          "command": "okx account balance --profile demo --json",
+          "args": [
+            "okx",
+            "account",
+            "balance",
+            "--profile",
+            "demo",
+            "--json"
+          ]
+        },
+        {
+          "module": "account",
+          "requiresWrite": false,
+          "reason": "Read open positions before proposing a hedge.",
+          "command": "okx account positions --profile demo --json",
+          "args": [
+            "okx",
+            "account",
+            "positions",
+            "--profile",
+            "demo",
+            "--json"
+          ]
+        },
+        {
+          "module": "market",
+          "requiresWrite": false,
+          "reason": "Read spot ticker context.",
+          "command": "okx market ticker BTC-USDT --profile demo --json",
+          "args": [
+            "okx",
+            "market",
+            "ticker",
+            "BTC-USDT",
+            "--profile",
+            "demo",
+            "--json"
+          ]
+        },
+        {
+          "module": "market",
+          "requiresWrite": false,
+          "reason": "Read hourly candles for recent volatility context.",
+          "command": "okx market candles BTC-USDT --bar 1H --limit 120 --profile demo --json",
+          "args": [
+            "okx",
+            "market",
+            "candles",
+            "BTC-USDT",
+            "--bar",
+            "1H",
+            "--limit",
+            "120",
+            "--profile",
+            "demo",
+            "--json"
+          ]
+        },
+        {
+          "module": "swap",
+          "requiresWrite": true,
+          "reason": "Sell a small perpetual hedge leg in demo or live after policy approval.",
+          "command": "okx swap place-order --instId BTC-USDT-SWAP --tdMode cross --side sell --ordType market --sz 0.01 --profile demo --json",
+          "args": [
+            "okx",
+            "swap",
+            "place-order",
+            "--instId",
+            "BTC-USDT-SWAP",
+            "--tdMode",
+            "cross",
+            "--side",
+            "sell",
+            "--ordType",
+            "market",
+            "--sz",
+            "0.01",
+            "--profile",
+            "demo",
+            "--json"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "protective-put",
+      "reason": "Known premium expense with stronger downside convexity.",
+      "estimatedCost": "option premium",
+      "estimatedProtection": "strong",
+      "requiredModules": [
+        "account",
+        "market",
+        "option"
+      ],
+      "intents": [
+        {
+          "module": "account",
+          "requiresWrite": false,
+          "reason": "Read balances before risk analysis.",
+          "command": "okx account balance --profile demo --json",
+          "args": [
+            "okx",
+            "account",
+            "balance",
+            "--profile",
+            "demo",
+            "--json"
+          ]
+        },
+        {
+          "module": "account",
+          "requiresWrite": false,
+          "reason": "Read open positions before proposing a hedge.",
+          "command": "okx account positions --profile demo --json",
+          "args": [
+            "okx",
+            "account",
+            "positions",
+            "--profile",
+            "demo",
+            "--json"
+          ]
+        },
+        {
+          "module": "market",
+          "requiresWrite": false,
+          "reason": "Read spot ticker context.",
+          "command": "okx market ticker BTC-USDT --profile demo --json",
+          "args": [
+            "okx",
+            "market",
+            "ticker",
+            "BTC-USDT",
+            "--profile",
+            "demo",
+            "--json"
+          ]
+        },
+        {
+          "module": "market",
+          "requiresWrite": false,
+          "reason": "Read hourly candles for recent volatility context.",
+          "command": "okx market candles BTC-USDT --bar 1H --limit 120 --profile demo --json",
+          "args": [
+            "okx",
+            "market",
+            "candles",
+            "BTC-USDT",
+            "--bar",
+            "1H",
+            "--limit",
+            "120",
+            "--profile",
+            "demo",
+            "--json"
+          ]
+        },
+        {
+          "module": "option",
+          "requiresWrite": true,
+          "reason": "Buy downside protection with a put option.",
+          "command": "okx option place-order --instId BTC-USD-260327-90000-P --tdMode cross --side buy --ordType market --sz 1 --profile demo --json",
+          "args": [
+            "okx",
+            "option",
+            "place-order",
+            "--instId",
+            "BTC-USD-260327-90000-P",
+            "--tdMode",
+            "cross",
+            "--side",
+            "buy",
+            "--ordType",
+            "market",
+            "--sz",
+            "1",
+            "--profile",
+            "demo",
+            "--json"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "collar",
+      "reason": "Reduced premium outlay by selling upside optionality.",
+      "estimatedCost": "low net premium",
+      "estimatedProtection": "strong with capped upside",
+      "requiredModules": [
+        "account",
+        "market",
+        "option"
+      ],
+      "intents": [
+        {
+          "module": "account",
+          "requiresWrite": false,
+          "reason": "Read balances before risk analysis.",
+          "command": "okx account balance --profile demo --json",
+          "args": [
+            "okx",
+            "account",
+            "balance",
+            "--profile",
+            "demo",
+            "--json"
+          ]
+        },
+        {
+          "module": "account",
+          "requiresWrite": false,
+          "reason": "Read open positions before proposing a hedge.",
+          "command": "okx account positions --profile demo --json",
+          "args": [
+            "okx",
+            "account",
+            "positions",
+            "--profile",
+            "demo",
+            "--json"
+          ]
+        },
+        {
+          "module": "market",
+          "requiresWrite": false,
+          "reason": "Read spot ticker context.",
+          "command": "okx market ticker BTC-USDT --profile demo --json",
+          "args": [
+            "okx",
+            "market",
+            "ticker",
+            "BTC-USDT",
+            "--profile",
+            "demo",
+            "--json"
+          ]
+        },
+        {
+          "module": "market",
+          "requiresWrite": false,
+          "reason": "Read hourly candles for recent volatility context.",
+          "command": "okx market candles BTC-USDT --bar 1H --limit 120 --profile demo --json",
+          "args": [
+            "okx",
+            "market",
+            "candles",
+            "BTC-USDT",
+            "--bar",
+            "1H",
+            "--limit",
+            "120",
+            "--profile",
+            "demo",
+            "--json"
+          ]
+        },
+        {
+          "module": "option",
+          "requiresWrite": true,
+          "reason": "Buy a put leg for protection.",
+          "command": "okx option place-order --instId BTC-USD-260327-90000-P --tdMode cross --side buy --ordType market --sz 1 --profile demo --json",
+          "args": [
+            "okx",
+            "option",
+            "place-order",
+            "--instId",
+            "BTC-USD-260327-90000-P",
+            "--tdMode",
+            "cross",
+            "--side",
+            "buy",
+            "--ordType",
+            "market",
+            "--sz",
+            "1",
+            "--profile",
+            "demo",
+            "--json"
+          ]
+        },
+        {
+          "module": "option",
+          "requiresWrite": true,
+          "reason": "Finance part of the premium by selling an upside call.",
+          "command": "okx option place-order --instId BTC-USD-260327-120000-C --tdMode cross --side sell --ordType market --sz 1 --profile demo --json",
+          "args": [
+            "okx",
+            "option",
+            "place-order",
+            "--instId",
+            "BTC-USD-260327-120000-C",
+            "--tdMode",
+            "cross",
+            "--side",
+            "sell",
+            "--ordType",
+            "market",
+            "--sz",
+            "1",
+            "--profile",
+            "demo",
+            "--json"
+          ]
+        }
+      ]
+    }
+  ],
+  "risk": {
+    "score": 0.25,
+    "needsApproval": true,
+    "reasons": [
+      "simulated write path",
+      "safe for rehearsal",
+      "still require human checkpoint"
+    ]
+  },
+  "permissions": {
+    "plane": "demo",
+    "officialWriteOnly": true,
+    "allowedModules": [
+      "market",
+      "account",
+      "swap",
+      "option"
+    ]
+  },
+  "capabilitySnapshot": {
+    "okxCliAvailable": false,
+    "configPath": "/home/oai/.okx/config.toml",
+    "configExists": false,
+    "demoProfileLikelyConfigured": false,
+    "liveProfileLikelyConfigured": false,
+    "warnings": [
+      "okx CLI was not found on PATH.",
+      "~/.okx/config.toml was not found."
+    ]
+  },
+  "approved": true,
+  "executions": [
+    {
+      "requestedAt": "2026-03-19T16:31:46.416Z",
+      "mode": "dry-run",
+      "plane": "demo",
+      "proposal": "protective-put",
+      "approvalProvided": true,
+      "status": "dry_run",
+      "results": [
+        {
+          "intent": {
+            "module": "account",
+            "requiresWrite": false,
+            "reason": "Read balances before risk analysis.",
+            "command": "okx account balance --profile demo --json",
+            "args": [
+              "okx",
+              "account",
+              "balance",
+              "--profile",
+              "demo",
+              "--json"
+            ]
+          },
+          "ok": true,
+          "exitCode": 0,
+          "stdout": "",
+          "stderr": "",
+          "skipped": true,
+          "dryRun": true
+        },
+        {
+          "intent": {
+            "module": "account",
+            "requiresWrite": false,
+            "reason": "Read open positions before proposing a hedge.",
+            "command": "okx account positions --profile demo --json",
+            "args": [
+              "okx",
+              "account",
+              "positions",
+              "--profile",
+              "demo",
+              "--json"
+            ]
+          },
+          "ok": true,
+          "exitCode": 0,
+          "stdout": "",
+          "stderr": "",
+          "skipped": true,
+          "dryRun": true
+        },
+        {
+          "intent": {
+            "module": "market",
+            "requiresWrite": false,
+            "reason": "Read spot ticker context.",
+            "command": "okx market ticker BTC-USDT --profile demo --json",
+            "args": [
+              "okx",
+              "market",
+              "ticker",
+              "BTC-USDT",
+              "--profile",
+              "demo",
+              "--json"
+            ]
+          },
+          "ok": true,
+          "exitCode": 0,
+          "stdout": "",
+          "stderr": "",
+          "skipped": true,
+          "dryRun": true
+        },
+        {
+          "intent": {
+            "module": "market",
+            "requiresWrite": false,
+            "reason": "Read hourly candles for recent volatility context.",
+            "command": "okx market candles BTC-USDT --bar 1H --limit 120 --profile demo --json",
+            "args": [
+              "okx",
+              "market",
+              "candles",
+              "BTC-USDT",
+              "--bar",
+              "1H",
+              "--limit",
+              "120",
+              "--profile",
+              "demo",
+              "--json"
+            ]
+          },
+          "ok": true,
+          "exitCode": 0,
+          "stdout": "",
+          "stderr": "",
+          "skipped": true,
+          "dryRun": true
+        },
+        {
+          "intent": {
+            "module": "option",
+            "requiresWrite": true,
+            "reason": "Buy downside protection with a put option.",
+            "command": "okx option place-order --instId BTC-USD-260327-90000-P --tdMode cross --side buy --ordType market --sz 1 --profile demo --json",
+            "args": [
+              "okx",
+              "option",
+              "place-order",
+              "--instId",
+              "BTC-USD-260327-90000-P",
+              "--tdMode",
+              "cross",
+              "--side",
+              "buy",
+              "--ordType",
+              "market",
+              "--sz",
+              "1",
+              "--profile",
+              "demo",
+              "--json"
+            ]
+          },
+          "ok": true,
+          "exitCode": 0,
+          "stdout": "",
+          "stderr": "",
+          "skipped": true,
+          "dryRun": true
+        }
+      ]
+    }
+  ],
+  "policyDecision": {
+    "outcome": "approved",
+    "reasons": [
+      "policy gate approved this proposal"
+    ]
+  }
+}
