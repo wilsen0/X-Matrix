@@ -356,18 +356,30 @@ function extractTrendScore(instId: string, payload: unknown): TrendScoreSummary 
   };
 }
 
-function symbolsFromContext(context: SkillContext): string[] {
+function symbolsFromContext(context: SkillContext): {
+  symbols: string[];
+  source: "artifact" | "legacy-shared-state" | "default";
+} {
   const portfolioSnapshot = context.artifacts.get<PortfolioSnapshot>("portfolio.snapshot")?.data;
   if (portfolioSnapshot?.symbols && portfolioSnapshot.symbols.length > 0) {
-    return portfolioSnapshot.symbols;
+    return {
+      symbols: portfolioSnapshot.symbols,
+      source: "artifact",
+    };
   }
 
   const raw = context.sharedState.symbols;
   if (Array.isArray(raw)) {
-    return raw.filter((symbol): symbol is string => typeof symbol === "string");
+    return {
+      symbols: raw.filter((symbol): symbol is string => typeof symbol === "string"),
+      source: "legacy-shared-state",
+    };
   }
 
-  return ["BTC", "ETH", "SOL"];
+  return {
+    symbols: ["BTC", "ETH", "SOL"],
+    source: "default",
+  };
 }
 
 function overallDirection(trendScores: TrendScoreSummary[]): MarketRegime["directionalRegime"] {
@@ -423,7 +435,8 @@ function fundingStateFromRate(rate: number | null): MarketRegime["fundingState"]
 }
 
 export default async function run(context: SkillContext): Promise<SkillOutput> {
-  const symbols = symbolsFromContext(context);
+  const symbolSelection = symbolsFromContext(context);
+  const symbols = symbolSelection.symbols;
   const instIds = symbols.map((symbol) => `${symbol}-USDT`);
   const marketSnapshot = readMarketSnapshot(instIds, context.plane);
   const ruleCards = await loadRuleCards();
@@ -521,6 +534,9 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
       `Snapshot coverage: tickers=${Object.keys(marketSnapshot.tickers).length}, candles=${Object.keys(marketSnapshot.candles).length}, funding=${Object.keys(marketSnapshot.fundingRates).length}, orderbook=${Object.keys(marketSnapshot.orderbooks).length}.`,
     );
   }
+  if (symbolSelection.source === "legacy-shared-state") {
+    marketFacts.push("Compatibility warning: market-scan read symbols from legacy sharedState instead of portfolio.snapshot.");
+  }
 
   marketFacts.push(
     `Market regime: ${regime.directionalRegime}, vol=${regime.volState}, tailRisk=${regime.tailRiskState}, funding=${regime.fundingState}, conviction=${regime.conviction}.`,
@@ -583,6 +599,7 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
     doctrineRefs,
     metadata: {
       snapshotMode: marketSnapshot.source,
+      symbolSelectionSource: symbolSelection.source,
       marketCommands: marketSnapshot.commands,
       marketErrors: marketSnapshot.errors,
       trendScores,

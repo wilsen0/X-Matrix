@@ -70,6 +70,7 @@ type HydrateInput = Omit<
   executions?: ExecutionRecord[];
   errors?: RunErrorRecord[];
   policyDecision?: PolicyDecision;
+  legacyProposals?: SkillProposal[];
 };
 
 const RUN_STATUS_SET = new Set<RunStatus>([
@@ -281,7 +282,10 @@ function normalizeStatus(status: RunRecord["status"] | undefined): RunRecord["st
 function hydrateRecord(record: HydrateInput): RunRecord {
   const facts = collectFacts(record.trace);
   const constraints = collectConstraints(record.trace);
-  const proposals = collectProposals(record.trace);
+  const proposalsFromTrace = collectProposals(record.trace);
+  const proposals = proposalsFromTrace.length > 0
+    ? proposalsFromTrace
+    : (record.legacyProposals ?? []).map(normalizeProposal);
   const risk = pickRunRisk(record.trace);
   const permissions = pickRunPermissions(record.trace, record.plane);
 
@@ -318,6 +322,7 @@ async function loadNormalizedRun(runId: string): Promise<RunRecord> {
     updatedAt: loaded.updatedAt,
     selectedProposal: loaded.selectedProposal,
     policyDecision: loaded.policyDecision,
+    legacyProposals: loaded.proposals ?? [],
     capabilitySnapshot,
     executions: loaded.executions ?? [],
     errors: loaded.errors ?? [],
@@ -333,6 +338,93 @@ function planningRouteWithTail(route: string[], manifests: SkillManifest[]): str
     }
   }
   return finalRoute;
+}
+
+function latestTraceEntry(trace: SkillOutput[], skillName: string): SkillOutput | undefined {
+  return [...trace].reverse().find((entry) => entry.skill === skillName);
+}
+
+function deriveLegacyTradeThesis(record: RunRecord): Record<string, unknown> {
+  const preferredStrategies = record.proposals.map((proposal) => proposal.name);
+  const topProposal = preferredStrategies[0] ?? "perp-short";
+  const hedgeBias =
+    topProposal === "protective-put"
+      ? "protective-put"
+      : topProposal === "collar"
+        ? "collar"
+        : topProposal === "de-risk" || topProposal === "deleverage-first"
+          ? "de-risk"
+          : "perp";
+
+  return {
+    directionalRegime: "sideways",
+    volState: "normal",
+    tailRiskState: "normal",
+    hedgeBias,
+    conviction: 50,
+    riskBudget: {
+      maxSingleOrderUsd: 5_000,
+      maxPremiumSpendUsd: 1_000,
+      maxMarginUseUsd: 4_000,
+      maxCorrelationBucketPct: 40,
+      maxTotalExposureUsd: 100_000,
+    },
+    disciplineState: "normal",
+    preferredStrategies,
+    decisionNotes: ["Migrated from legacy run record without artifacts snapshot."],
+    ruleRefs: [],
+    doctrineRefs: [],
+  };
+}
+
+function seedSharedStateFromLegacyRun(record: RunRecord): Record<string, unknown> {
+  const sharedState: Record<string, unknown> = {};
+  const portfolioEntry = latestTraceEntry(record.trace, "portfolio-xray");
+  const marketEntry = latestTraceEntry(record.trace, "market-scan");
+  const thesisEntry = latestTraceEntry(record.trace, "trade-thesis");
+  const replaylessProposals = record.proposals.map(normalizeProposal);
+
+  const portfolioSnapshot = portfolioEntry?.metadata?.portfolioSnapshot;
+  if (portfolioSnapshot && typeof portfolioSnapshot === "object") {
+    sharedState.portfolioSnapshot = portfolioSnapshot;
+  } else if (record.constraints.selectedSymbols || record.constraints.drawdownTarget) {
+    sharedState.portfolioSnapshot = {
+      source: "fallback",
+      symbols: Array.isArray(record.constraints.selectedSymbols) ? record.constraints.selectedSymbols : [],
+      drawdownTarget: typeof record.constraints.drawdownTarget === "string" ? record.constraints.drawdownTarget : "4%",
+      commands: [],
+      errors: ["Migrated from legacy run record."],
+      accountEquity: 0,
+      availableUsd: null,
+    };
+  }
+
+  const riskProfile =
+    portfolioEntry?.metadata?.riskProfile ??
+    (typeof record.constraints.portfolioRiskProfile === "object" ? record.constraints.portfolioRiskProfile : undefined);
+  if (riskProfile) {
+    sharedState.portfolioRiskProfile = riskProfile;
+  }
+
+  if (marketEntry?.metadata?.regime && typeof marketEntry.metadata.regime === "object") {
+    sharedState.marketRegime = marketEntry.metadata.regime;
+  }
+
+  if (thesisEntry?.metadata?.thesis && typeof thesisEntry.metadata.thesis === "object") {
+    sharedState.tradeThesis = thesisEntry.metadata.thesis;
+  } else {
+    sharedState.tradeThesis = deriveLegacyTradeThesis(record);
+  }
+
+  if (replaylessProposals.length > 0) {
+    sharedState.proposals = replaylessProposals;
+  }
+
+  return sharedState;
+}
+
+function compatibilityNotes(artifacts: ArtifactStore): string[] {
+  return artifacts.legacyWarnings().map((warning) => `Compatibility warning: ${warning}`);
 }
 
 function proposalsFromArtifacts(artifacts: ArtifactStore): SkillProposal[] {
@@ -634,6 +726,7 @@ export async function createPlan(goal: string, options: PlanOptions): Promise<Ru
       "Use apply --proposal <name> to select an execution path.",
       "Use --approve and --execute for explicit write execution.",
       `Initial plane: ${options.plane}`,
+      ...compatibilityNotes(artifacts),
     ],
     createdAt: now(),
     updatedAt: now(),
@@ -655,6 +748,9 @@ export async function applyRun(runId: string, options: ApplyOptions): Promise<Ru
   const targetPlane = options.plane ?? baseRecord.plane;
   const artifactSnapshot = await loadArtifactSnapshot(runId);
   const sharedState: Record<string, unknown> = {};
+  if (Object.keys(artifactSnapshot).length === 0) {
+    Object.assign(sharedState, seedSharedStateFromLegacyRun(baseRecord));
+  }
   const artifacts = createArtifactStore(artifactSnapshot, sharedState);
   const capabilitySnapshot = await inspectOkxEnvironment();
   const proposal = resolveProposal(baseRecord, artifacts, options.proposalName);
@@ -745,6 +841,7 @@ export async function applyRun(runId: string, options: ApplyOptions): Promise<Ru
       ...baseRecord.notes,
       `Apply ${status}: ${decision.reasons.join(" | ")}`,
       ...(executionOutcome.errors.length > 0 ? [`Execution errors recorded: ${executionOutcome.errors.length}`] : []),
+      ...compatibilityNotes(artifacts),
     ],
     updatedAt: now(),
   });
@@ -782,6 +879,7 @@ export async function replayRun(runId: string, options: ReplayOptions = {}): Pro
     latestExecutionResults: record.executions.at(-1)?.results ?? [],
   };
   const artifacts = createArtifactStore(await loadArtifactSnapshot(runId), sharedState);
+  sharedState.replayCompatibilityWarnings = artifacts.legacyWarnings();
   const traceWithoutReplay = record.trace.filter((entry) => entry.skill !== "replay");
   const replayOutput = await executeSkill(replayManifest, {
     runId: record.id,
@@ -955,6 +1053,7 @@ export function formatReplay(record: RunRecord): string {
     const timelineRaw = replayEntry.metadata?.timeline;
     const artifactRaw = replayEntry.metadata?.artifacts;
     const evidenceRaw = replayEntry.metadata?.evidence;
+    const compatibilityRaw = replayEntry.metadata?.compatibilityWarnings;
     if (Array.isArray(timelineRaw) && timelineRaw.length > 0) {
       lines.push("");
       lines.push("timeline:");
@@ -969,6 +1068,11 @@ export function formatReplay(record: RunRecord): string {
       lines.push("");
       lines.push("evidence:");
       lines.push(...evidenceRaw.filter((item): item is string => typeof item === "string").map((item) => `- ${item}`));
+    }
+    if (Array.isArray(compatibilityRaw) && compatibilityRaw.length > 0) {
+      lines.push("");
+      lines.push("compatibility:");
+      lines.push(...compatibilityRaw.filter((item): item is string => typeof item === "string").map((item) => `- ${item}`));
     }
   }
 

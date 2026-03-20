@@ -135,6 +135,9 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
   const artifactLines = summarizeArtifacts(artifactSnapshot);
   const evidenceLines = summarizeEvidence(replayTrace);
   const chain = timeline(replayTrace);
+  const compatibilityWarnings = Array.isArray(sharedState.replayCompatibilityWarnings)
+    ? sharedState.replayCompatibilityWarnings.filter((item): item is string => typeof item === "string")
+    : [];
 
   const facts = [
     `Replay entries: ${replayTrace.length}${skillFilter ? ` (skill filter: ${skillFilter})` : ""}.`,
@@ -142,6 +145,9 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
     summarizePolicy(latestDecision),
     `Executions recorded: ${latestResults.length}.`,
   ];
+  if (compatibilityWarnings.length > 0) {
+    facts.push(`Compatibility warnings: ${compatibilityWarnings.length}.`);
+  }
 
   if (filteredTrace.length === 0 && skillFilter) {
     facts.push(`No trace entries matched --skill ${skillFilter}; replay used the full trace.`);
@@ -179,6 +185,7 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
       policyDecision: latestDecision ?? null,
       latestExecutionCount: latestResults.length,
       traceLoadedFromFile: Boolean(traceEnvelope),
+      compatibilityWarnings,
     },
     timestamp: new Date().toISOString(),
   };

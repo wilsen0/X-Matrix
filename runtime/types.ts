@@ -369,6 +369,7 @@ export interface ArtifactStore {
   set<T = unknown>(artifact: SkillArtifact<T>): SkillArtifact<T>;
   list(): SkillArtifact<unknown>[];
   snapshot(): ArtifactSnapshot;
+  legacyWarnings(): string[];
 }
 
 export interface SkillOutput {

@@ -1,6 +1,7 @@
 import { readdir, readFile } from "fs/promises";
 import { join } from "path";
 import { getProjectPaths } from "./paths.js";
+import { validateDoctrineCard, validateRuleCard } from "./contracts.js";
 import type { ArtifactKey, DoctrineId, SkillManifest } from "./types.js";
 
 export interface ParsedRule {
@@ -156,7 +157,7 @@ export async function loadDoctrineCards(): Promise<DoctrineCard[]> {
       .sort()
       .map((entry) => loadJson<DoctrineCard>(join(doctrinesRoot, entry))),
   );
-  return cards;
+  return cards.map((card) => validateDoctrineCard(card));
 }
 
 export async function loadRuleCards(): Promise<RuleCard[]> {
@@ -169,7 +170,7 @@ export async function loadRuleCards(): Promise<RuleCard[]> {
       .map((entry) => loadJson<RuleCardFile>(join(rulesRoot, entry))),
   );
 
-  return files.flatMap((file) => file.rules);
+  return files.flatMap((file) => file.rules).map((card) => validateRuleCard(card));
 }
 
 export async function validateRuleDocs(): Promise<{
