@@ -44,3 +44,4 @@ Behavior notes:
 - `apply` now records structured `policyDecision` and `executions[]` for every request
 - use `--approve` to satisfy approval-required policies and `--execute` to run commands instead of dry-run
 - `official-executor` emits structured command intents and execution previews
+# Agile-Skill-Orchestration-Engine
