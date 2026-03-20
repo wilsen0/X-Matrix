@@ -1,6 +1,6 @@
 import { createCommandIntent } from "../../runtime/okx.js";
 import { putArtifact } from "../../runtime/artifacts.js";
-import { artifactReference } from "../../runtime/migrations.js";
+import { artifactReference } from "../../runtime/artifact-schema.js";
 import type {
   MarketRegime,
   OptionOrderPlanStep,

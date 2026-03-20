@@ -92,7 +92,7 @@ test("artifact contracts reject invalid canonical payloads", () => {
   }, /name/);
 });
 
-test("applyRun migrates a legacy run without artifacts.json into the artifact runtime", async () => {
+test("applyRun rejects runs without artifacts.json in current development mode", async () => {
   const runId = `run_legacy_apply_${Date.now()}`;
   const runsDir = join(process.cwd(), "runs");
   const runFile = join(runsDir, `${runId}.json`);
@@ -204,68 +204,56 @@ test("applyRun migrates a legacy run without artifacts.json into the artifact ru
   );
 
   try {
-    const record = await applyRun(runId, {
-      plane: "demo",
-      proposalName: "protective-put",
-      approve: true,
-      execute: false,
-    });
-
-    assert.equal(record.selectedProposal, "protective-put");
-    assert.ok(record.executions.length >= 1);
-    assert.ok(record.notes.some((note) => note.includes("Compatibility warning")));
+    await assert.rejects(
+      () =>
+        applyRun(runId, {
+          plane: "demo",
+          proposalName: "protective-put",
+          approve: true,
+          execute: false,
+        }),
+      /only supports current runs|archive old run state/i,
+    );
   } finally {
     await rm(runFile, { force: true });
     await rm(join(process.cwd(), ".trademesh", "runs", runId), { recursive: true, force: true });
   }
 });
 
-test("artifact store migrates v1 artifact payloads to the current canonical version", () => {
-  const artifacts = createArtifactStore({
-    "trade.thesis": {
-      key: "trade.thesis",
-      version: 1,
-      producer: "legacy-test",
-      createdAt: "2026-03-21T10:00:00.000Z",
-      data: {
-        directionalRegime: "sideways",
-        volState: "normal",
-        tailRiskState: "normal",
-        hedgeBias: "protective-put",
-        conviction: 55,
-        riskBudget: {
-          maxSingleOrderUsd: 4_000,
-          maxPremiumSpendUsd: 600,
-          maxMarginUseUsd: 3_000,
-          maxCorrelationBucketPct: 45,
+test("artifact store rejects outdated artifact payload versions", () => {
+  assert.throws(() => {
+    createArtifactStore({
+      "trade.thesis": {
+        key: "trade.thesis",
+        version: 1,
+        producer: "legacy-test",
+        createdAt: "2026-03-21T10:00:00.000Z",
+        data: {
+          directionalRegime: "sideways",
+          volState: "normal",
+          tailRiskState: "normal",
+          hedgeBias: "protective-put",
+          conviction: 55,
+          riskBudget: {
+            maxSingleOrderUsd: 4_000,
+            maxPremiumSpendUsd: 600,
+            maxMarginUseUsd: 3_000,
+            maxCorrelationBucketPct: 45,
+          },
+          disciplineState: "normal",
+          preferredStrategies: ["protective-put"],
+          decisionNotes: [],
+          ruleRefs: [],
+          doctrineRefs: [],
         },
-        disciplineState: "normal",
+        ruleRefs: [],
+        doctrineRefs: [],
       },
-      ruleRefs: [],
-      doctrineRefs: [],
-    },
-    "planning.proposals": {
-      key: "planning.proposals",
-      version: 1,
-      producer: "legacy-test",
-      createdAt: "2026-03-21T10:00:00.000Z",
-      data: [{ name: "protective-put", reason: "legacy proposal" }],
-      ruleRefs: [],
-      doctrineRefs: [],
-    },
-  });
-
-  const thesis = artifacts.require("trade.thesis");
-  const proposals = artifacts.require("planning.proposals");
-
-  assert.equal(thesis.version, 2);
-  assert.deepEqual(thesis.data.preferredStrategies, ["protective-put", "collar", "perp-short", "de-risk"]);
-  assert.equal(proposals.version, 2);
-  assert.equal(proposals.data[0].strategyId, "protective-put");
-  assert.ok(artifacts.legacyWarnings().some((warning) => warning.includes("Migrated artifact 'trade.thesis'")));
+    });
+  }, /must use current version 2/i);
 });
 
-test("saveArtifactSnapshot writes the new envelope format and loadArtifactSnapshot stays backward compatible", async () => {
+test("saveArtifactSnapshot writes the current envelope format", async () => {
   const runId = `run_artifact_envelope_${Date.now()}`;
   const runDir = join(process.cwd(), ".trademesh", "runs", runId);
   await mkdir(runDir, { recursive: true });
@@ -301,14 +289,24 @@ test("saveArtifactSnapshot writes the new envelope format and loadArtifactSnapsh
 
     const loaded = await loadArtifactSnapshot(runId);
     assert.ok(loaded["policy.plan-decision"]);
+  } finally {
+    await rm(runDir, { recursive: true, force: true });
+  }
+});
 
+test("loadArtifactSnapshot rejects legacy raw artifact snapshots", async () => {
+  const runId = `run_artifact_legacy_${Date.now()}`;
+  const runDir = join(process.cwd(), ".trademesh", "runs", runId);
+  await mkdir(runDir, { recursive: true });
+
+  try {
     await writeFile(
       join(runDir, "artifacts.json"),
       JSON.stringify(
         {
           "policy.plan-decision": {
             key: "policy.plan-decision",
-            version: 1,
+            version: 2,
             producer: "legacy-policy",
             createdAt: "2026-03-21T10:00:00.000Z",
             data: {
@@ -319,6 +317,10 @@ test("saveArtifactSnapshot writes the new envelope format and loadArtifactSnapsh
               executeRequested: false,
               approvalProvided: true,
               evaluatedAt: "2026-03-21T10:00:00.000Z",
+              phase: "plan",
+              ruleRefs: [],
+              doctrineRefs: [],
+              breachFlags: [],
             },
             ruleRefs: [],
             doctrineRefs: [],
@@ -329,8 +331,7 @@ test("saveArtifactSnapshot writes the new envelope format and loadArtifactSnapsh
       ),
     );
 
-    const backwardCompatible = await loadArtifactSnapshot(runId);
-    assert.equal(backwardCompatible["policy.plan-decision"].version, 1);
+    await assert.rejects(() => loadArtifactSnapshot(runId), /unsupported legacy format|archive dev state/i);
   } finally {
     await rm(runDir, { recursive: true, force: true });
   }

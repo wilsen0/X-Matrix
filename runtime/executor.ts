@@ -1,7 +1,7 @@
 import { executeIntent, inspectOkxEnvironment } from "./okx.js";
 import { createArtifactStore, putArtifact } from "./artifacts.js";
+import { currentArtifactVersion } from "./artifact-schema.js";
 import { runPlanningGraph } from "./graph-runtime.js";
-import { currentArtifactVersion } from "./migrations.js";
 import { evaluatePolicy } from "./policy.js";
 import { loadSkillHandler, loadSkillRegistry } from "./registry.js";
 import {
@@ -345,85 +345,6 @@ function latestTraceEntry(trace: SkillOutput[], skillName: string): SkillOutput 
   return [...trace].reverse().find((entry) => entry.skill === skillName);
 }
 
-function deriveLegacyTradeThesis(record: RunRecord): Record<string, unknown> {
-  const preferredStrategies = record.proposals.map((proposal) => proposal.name);
-  const topProposal = preferredStrategies[0] ?? "perp-short";
-  const hedgeBias =
-    topProposal === "protective-put"
-      ? "protective-put"
-      : topProposal === "collar"
-        ? "collar"
-        : topProposal === "de-risk" || topProposal === "deleverage-first"
-          ? "de-risk"
-          : "perp";
-
-  return {
-    directionalRegime: "sideways",
-    volState: "normal",
-    tailRiskState: "normal",
-    hedgeBias,
-    conviction: 50,
-    riskBudget: {
-      maxSingleOrderUsd: 5_000,
-      maxPremiumSpendUsd: 1_000,
-      maxMarginUseUsd: 4_000,
-      maxCorrelationBucketPct: 40,
-      maxTotalExposureUsd: 100_000,
-    },
-    disciplineState: "normal",
-    preferredStrategies,
-    decisionNotes: ["Migrated from legacy run record without artifacts snapshot."],
-    ruleRefs: [],
-    doctrineRefs: [],
-  };
-}
-
-function seedSharedStateFromLegacyRun(record: RunRecord): Record<string, unknown> {
-  const sharedState: Record<string, unknown> = {};
-  const portfolioEntry = latestTraceEntry(record.trace, "portfolio-xray");
-  const marketEntry = latestTraceEntry(record.trace, "market-scan");
-  const thesisEntry = latestTraceEntry(record.trace, "trade-thesis");
-  const replaylessProposals = record.proposals.map(normalizeProposal);
-
-  const portfolioSnapshot = portfolioEntry?.metadata?.portfolioSnapshot;
-  if (portfolioSnapshot && typeof portfolioSnapshot === "object") {
-    sharedState.portfolioSnapshot = portfolioSnapshot;
-  } else if (record.constraints.selectedSymbols || record.constraints.drawdownTarget) {
-    sharedState.portfolioSnapshot = {
-      source: "fallback",
-      symbols: Array.isArray(record.constraints.selectedSymbols) ? record.constraints.selectedSymbols : [],
-      drawdownTarget: typeof record.constraints.drawdownTarget === "string" ? record.constraints.drawdownTarget : "4%",
-      commands: [],
-      errors: ["Migrated from legacy run record."],
-      accountEquity: 0,
-      availableUsd: null,
-    };
-  }
-
-  const riskProfile =
-    portfolioEntry?.metadata?.riskProfile ??
-    (typeof record.constraints.portfolioRiskProfile === "object" ? record.constraints.portfolioRiskProfile : undefined);
-  if (riskProfile) {
-    sharedState.portfolioRiskProfile = riskProfile;
-  }
-
-  if (marketEntry?.metadata?.regime && typeof marketEntry.metadata.regime === "object") {
-    sharedState.marketRegime = marketEntry.metadata.regime;
-  }
-
-  if (thesisEntry?.metadata?.thesis && typeof thesisEntry.metadata.thesis === "object") {
-    sharedState.tradeThesis = thesisEntry.metadata.thesis;
-  } else {
-    sharedState.tradeThesis = deriveLegacyTradeThesis(record);
-  }
-
-  if (replaylessProposals.length > 0) {
-    sharedState.proposals = replaylessProposals;
-  }
-
-  return sharedState;
-}
-
 function compatibilityNotes(artifacts: ArtifactStore): string[] {
   return artifacts.legacyWarnings().map((warning) => `Compatibility warning: ${warning}`);
 }
@@ -434,32 +355,23 @@ function proposalsFromArtifacts(artifacts: ArtifactStore): SkillProposal[] {
 }
 
 function resolveProposal(
-  record: RunRecord,
   artifacts: ArtifactStore,
   proposalName?: string,
 ): SkillProposal {
   const proposals = proposalsFromArtifacts(artifacts);
-  const fallback = proposals.length > 0 ? proposals : record.proposals.map(normalizeProposal);
-  if (fallback.length === 0) {
-    throw new Error(`Run ${record.id} does not contain executable proposals.`);
+  if (proposals.length === 0) {
+    throw new Error("Artifact snapshot is missing 'planning.proposals'. Recreate the plan with the current runtime.");
   }
 
   if (proposalName) {
-    const explicit = fallback.find((proposal) => proposal.name === proposalName);
+    const explicit = proposals.find((proposal) => proposal.name === proposalName);
     if (!explicit) {
-      throw new Error(`Proposal '${proposalName}' was not found in run ${record.id}.`);
+      throw new Error(`Proposal '${proposalName}' was not found in the artifact snapshot.`);
     }
     return explicit;
   }
 
-  if (record.selectedProposal) {
-    const selected = fallback.find((proposal) => proposal.name === record.selectedProposal);
-    if (selected) {
-      return selected;
-    }
-  }
-
-  return fallback[0];
+  return proposals[0];
 }
 
 function extractExecutionBundle(artifacts: ArtifactStore, proposal: SkillProposal): ExecutionBundle {
@@ -749,13 +661,15 @@ export async function applyRun(runId: string, options: ApplyOptions): Promise<Ru
 
   const targetPlane = options.plane ?? baseRecord.plane;
   const artifactSnapshot = await loadArtifactSnapshot(runId);
-  const sharedState: Record<string, unknown> = {};
   if (Object.keys(artifactSnapshot).length === 0) {
-    Object.assign(sharedState, seedSharedStateFromLegacyRun(baseRecord));
+    throw new Error(
+      `Run '${runId}' is missing artifacts.json. This development build only supports current runs. Recreate the plan or archive old run state.`,
+    );
   }
+  const sharedState: Record<string, unknown> = {};
   const artifacts = createArtifactStore(artifactSnapshot, sharedState);
   const capabilitySnapshot = await inspectOkxEnvironment();
-  const proposal = resolveProposal(baseRecord, artifacts, options.proposalName);
+  const proposal = resolveProposal(artifacts, options.proposalName);
   const decision = await evaluatePolicy({
     phase: "apply",
     artifacts,

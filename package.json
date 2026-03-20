@@ -18,6 +18,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/bin/trademesh.js",
     "doctor": "npm run build --silent && node dist/bin/trademesh.js doctor",
+    "archive:dev-state": "node scripts/archive-dev-state.mjs",
     "skills": "npm run build --silent && node dist/bin/trademesh.js skills ls",
     "test": "pnpm build && node --test --test-concurrency=1 tests/*.test.mjs"
   },

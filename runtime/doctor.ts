@@ -21,6 +21,7 @@ export async function runDoctor(): Promise<DoctorReport> {
     "Prefer ~/.okx/config.toml for real environments; use project profiles/ only for local development scaffolding.",
     "Prefer apply without --execute first to validate policy and intents.",
     "Only use --execute --approve after reviewing the selected proposal intents.",
+    "When schema-breaking runtime changes land in development, archive local run state with `pnpm archive:dev-state` before re-planning.",
   ];
   const ok =
     capabilitySnapshot.okxCliAvailable &&

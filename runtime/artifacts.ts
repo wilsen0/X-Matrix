@@ -10,7 +10,7 @@ import type {
   TradeThesis,
 } from "./types.js";
 import { validateArtifactData, validateArtifactEnvelope, validateArtifactSnapshot } from "./contracts.js";
-import { currentArtifactVersion, normalizeArtifactEnvelope } from "./migrations.js";
+import { currentArtifactVersion } from "./artifact-schema.js";
 
 const ARTIFACT_TO_SHARED_STATE: Partial<Record<ArtifactKey, string[]>> = {
   "portfolio.snapshot": ["portfolioSnapshot", "accountSnapshot", "symbols", "drawdownTarget", "portfolioSource"],
@@ -76,7 +76,7 @@ function buildLegacyArtifact(
   validateArtifactData(key, data);
   return {
     key,
-    version: 1,
+    version: currentArtifactVersion(key),
     producer: "legacy-shared-state",
     createdAt: new Date().toISOString(),
     data,
@@ -94,10 +94,8 @@ function seedFromSharedState(
     if (data === undefined || store.has(key)) {
       return;
     }
-    const normalized = normalizeArtifactEnvelope(buildLegacyArtifact(key, data));
-    store.set(key, normalized.artifact);
+    store.set(key, buildLegacyArtifact(key, data));
     warnings.push(`Legacy sharedState input '${sourceLabel}' seeded artifact '${key}'.`);
-    warnings.push(...normalized.warnings);
   };
 
   seed("portfolio.snapshot", sharedState.portfolioSnapshot ?? sharedState.accountSnapshot, "portfolioSnapshot/accountSnapshot");
@@ -127,9 +125,7 @@ class InMemoryArtifactStore implements ArtifactStore {
         if (!artifact) {
           continue;
         }
-        const normalized = normalizeArtifactEnvelope(artifact);
-        this.compatibilityWarnings.push(...normalized.warnings);
-        this.store.set(normalized.artifact.key, cloneArtifact(normalized.artifact));
+        this.store.set(artifact.key, cloneArtifact(artifact));
       }
     }
 
@@ -159,10 +155,8 @@ class InMemoryArtifactStore implements ArtifactStore {
   }
 
   set<T = unknown>(artifact: SkillArtifact<T>): SkillArtifact<T> {
-    const migrated = normalizeArtifactEnvelope(artifact as SkillArtifact<unknown>);
-    validateArtifactEnvelope(migrated.artifact);
-    this.compatibilityWarnings.push(...migrated.warnings);
-    const normalized = cloneArtifact(migrated.artifact);
+    validateArtifactEnvelope(artifact as SkillArtifact<unknown>);
+    const normalized = cloneArtifact(artifact);
     this.store.set(artifact.key, normalized);
     if (this.sharedState) {
       mirrorArtifactToSharedState(artifact.key, normalized.data, this.sharedState);

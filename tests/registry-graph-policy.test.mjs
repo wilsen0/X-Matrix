@@ -35,7 +35,7 @@ test("graph runtime honors artifact dependencies and preferred handoffs", async 
       produces: ["portfolio.snapshot"],
       preferredHandoffs: ["planner-a"],
       repeatable: false,
-      artifactVersion: 1,
+      artifactVersion: 2,
       path: "sensor-a",
     },
     {
@@ -52,7 +52,7 @@ test("graph runtime honors artifact dependencies and preferred handoffs", async 
       produces: ["trade.thesis"],
       preferredHandoffs: ["guardrail-a"],
       repeatable: false,
-      artifactVersion: 1,
+      artifactVersion: 2,
       path: "planner-a",
     },
     {
@@ -69,7 +69,7 @@ test("graph runtime honors artifact dependencies and preferred handoffs", async 
       produces: ["policy.plan-decision"],
       preferredHandoffs: [],
       repeatable: false,
-      artifactVersion: 1,
+      artifactVersion: 2,
       path: "guardrail-a",
     },
   ];
@@ -82,7 +82,7 @@ test("graph runtime honors artifact dependencies and preferred handoffs", async 
       if (manifest.name === "sensor-a") {
         putArtifact(context.artifacts, {
           key: "portfolio.snapshot",
-          version: 1,
+          version: 2,
           producer: manifest.name,
           data: { symbols: ["BTC"] },
         });
@@ -90,7 +90,7 @@ test("graph runtime honors artifact dependencies and preferred handoffs", async 
       if (manifest.name === "planner-a") {
         putArtifact(context.artifacts, {
           key: "trade.thesis",
-          version: 1,
+          version: 2,
           producer: manifest.name,
           data: { hedgeBias: "perp" },
         });
@@ -98,7 +98,7 @@ test("graph runtime honors artifact dependencies and preferred handoffs", async 
       if (manifest.name === "guardrail-a") {
         putArtifact(context.artifacts, {
           key: "policy.plan-decision",
-          version: 1,
+          version: 2,
           producer: manifest.name,
           data: { outcome: "approved" },
         });
@@ -136,7 +136,7 @@ test("policy evaluator returns the same decision in plan/apply parity when input
   const artifacts = createArtifactStore();
   putArtifact(artifacts, {
     key: "portfolio.snapshot",
-    version: 1,
+    version: 2,
     producer: "test",
     data: {
       source: "okx-cli",
@@ -152,7 +152,7 @@ test("policy evaluator returns the same decision in plan/apply parity when input
   });
   putArtifact(artifacts, {
     key: "portfolio.risk-profile",
-    version: 1,
+    version: 2,
     producer: "test",
     data: {
       directionalExposure: { longUsd: 15_000, shortUsd: 0, netUsd: 15_000, dominantSide: "long" },
@@ -169,7 +169,7 @@ test("policy evaluator returns the same decision in plan/apply parity when input
   });
   putArtifact(artifacts, {
     key: "market.regime",
-    version: 1,
+    version: 2,
     producer: "test",
     data: {
       symbols: ["BTC"],
@@ -186,7 +186,7 @@ test("policy evaluator returns the same decision in plan/apply parity when input
   });
   putArtifact(artifacts, {
     key: "trade.thesis",
-    version: 1,
+    version: 2,
     producer: "test",
     data: {
       directionalRegime: "uptrend",

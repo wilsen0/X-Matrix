@@ -4,6 +4,7 @@ import type {
   PolicyDecision,
   SkillArtifact,
 } from "./types.js";
+import { currentArtifactVersion } from "./artifact-schema.js";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -172,7 +173,10 @@ export function validateArtifactData(key: ArtifactKey, data: unknown): void {
 
 export function validateArtifactEnvelope(artifact: SkillArtifact<unknown>): void {
   invariant(ARTIFACT_KEYS.includes(artifact.key), `Unknown artifact key '${artifact.key}'.`);
-  invariant(Number.isFinite(artifact.version) && artifact.version > 0, `Artifact '${artifact.key}' must have a positive version.`);
+  invariant(
+    artifact.version === currentArtifactVersion(artifact.key),
+    `Artifact '${artifact.key}' must use current version ${currentArtifactVersion(artifact.key)}.`,
+  );
   invariant(hasString(artifact.producer), `Artifact '${artifact.key}' must have a producer.`);
   invariant(hasString(artifact.createdAt), `Artifact '${artifact.key}' must have a createdAt timestamp.`);
   invariant(Array.isArray(artifact.ruleRefs), `Artifact '${artifact.key}.ruleRefs' must be an array.`);

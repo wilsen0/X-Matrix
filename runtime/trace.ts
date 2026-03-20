@@ -172,12 +172,16 @@ export async function loadArtifactSnapshot(runId: string): Promise<ArtifactSnaps
     typeof parsed === "object" &&
     !Array.isArray(parsed) &&
     "kind" in parsed &&
-    parsed.kind === "trademesh-artifacts"
+    parsed.kind === "trademesh-artifacts" &&
+    parsed.version === 2
   ) {
-    return parsed.artifacts && typeof parsed.artifacts === "object" ? parsed.artifacts : {};
+    const snapshot = parsed.artifacts && typeof parsed.artifacts === "object" ? parsed.artifacts : {};
+    return validateArtifactSnapshot(snapshot);
   }
 
-  return parsed && typeof parsed === "object" ? (parsed as ArtifactSnapshot) : {};
+  throw new Error(
+    `Artifact snapshot for run '${runId}' uses an unsupported legacy format. Archive dev state and recreate the plan.`,
+  );
 }
 
 export async function loadExecutionEnvelope(runId: string): Promise<ExecutionEnvelope | null> {
