@@ -13,7 +13,7 @@ consumes: [planning.proposals, policy.plan-decision, trade.thesis]
 produces: [execution.intent-bundle]
 preferred_handoffs: [replay]
 repeatable: false
-artifact_version: 1
+artifact_version: 2
 ---
 
 # Official Executor

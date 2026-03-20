@@ -13,7 +13,7 @@ consumes: []
 produces: []
 preferred_handoffs: []
 repeatable: false
-artifact_version: 1
+artifact_version: 2
 ---
 
 # Replay

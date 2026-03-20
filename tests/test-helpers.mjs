@@ -169,7 +169,7 @@ export function createContext({
       produces: [],
       preferredHandoffs: [],
       repeatable: false,
-      artifactVersion: 1,
+      artifactVersion: 2,
       path: "tests",
     },
     manifests: [],

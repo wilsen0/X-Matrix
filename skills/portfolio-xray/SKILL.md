@@ -13,7 +13,7 @@ consumes: []
 produces: [portfolio.snapshot, portfolio.risk-profile]
 preferred_handoffs: [market-scan]
 repeatable: false
-artifact_version: 1
+artifact_version: 2
 ---
 
 # Portfolio Xray

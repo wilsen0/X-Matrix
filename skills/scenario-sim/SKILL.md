@@ -13,7 +13,7 @@ consumes: [planning.proposals, trade.thesis, portfolio.risk-profile]
 produces: [planning.proposals, planning.scenario-matrix]
 preferred_handoffs: [policy-gate]
 repeatable: false
-artifact_version: 1
+artifact_version: 2
 ---
 
 # Scenario Sim

@@ -13,7 +13,7 @@ consumes: [portfolio.snapshot, portfolio.risk-profile, market.regime]
 produces: [trade.thesis]
 preferred_handoffs: [hedge-planner]
 repeatable: false
-artifact_version: 1
+artifact_version: 2
 ---
 
 # Trade Thesis

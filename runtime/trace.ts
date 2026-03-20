@@ -1,6 +1,7 @@
 import { existsSync, promises as fs } from "node:fs";
 import { join } from "node:path";
 import { getProjectPaths } from "./paths.js";
+import { validateArtifactSnapshot } from "./contracts.js";
 import type { ArtifactSnapshot, RunErrorRecord, RunRecord, SkillOutput } from "./types.js";
 
 export interface TraceEnvelope {
@@ -19,6 +20,14 @@ export interface TraceEnvelope {
 export interface ExecutionEnvelope {
   executions: RunRecord["executions"];
   errors: RunErrorRecord[];
+}
+
+interface ArtifactSnapshotEnvelope {
+  kind: "trademesh-artifacts";
+  version: 2;
+  runId: string;
+  savedAt: string;
+  artifacts: ArtifactSnapshot;
 }
 
 function timestampPrefix(date = new Date()): string {
@@ -138,7 +147,15 @@ export async function loadTraceEnvelope(runId: string): Promise<TraceEnvelope | 
 export async function saveArtifactSnapshot(runId: string, snapshot: ArtifactSnapshot): Promise<void> {
   const runDir = await ensureMeshRunDirectory(runId);
   const artifactPath = join(runDir, "artifacts.json");
-  await fs.writeFile(artifactPath, `${JSON.stringify(snapshot, null, 2)}\n`, "utf8");
+  const validated = validateArtifactSnapshot(snapshot);
+  const envelope: ArtifactSnapshotEnvelope = {
+    kind: "trademesh-artifacts",
+    version: 2,
+    runId,
+    savedAt: new Date().toISOString(),
+    artifacts: validated,
+  };
+  await fs.writeFile(artifactPath, `${JSON.stringify(envelope, null, 2)}\n`, "utf8");
 }
 
 export async function loadArtifactSnapshot(runId: string): Promise<ArtifactSnapshot> {
@@ -149,8 +166,18 @@ export async function loadArtifactSnapshot(runId: string): Promise<ArtifactSnaps
   }
 
   const contents = await fs.readFile(artifactPath, "utf8");
-  const parsed = JSON.parse(contents) as ArtifactSnapshot;
-  return parsed && typeof parsed === "object" ? parsed : {};
+  const parsed = JSON.parse(contents) as ArtifactSnapshot | ArtifactSnapshotEnvelope;
+  if (
+    parsed &&
+    typeof parsed === "object" &&
+    !Array.isArray(parsed) &&
+    "kind" in parsed &&
+    parsed.kind === "trademesh-artifacts"
+  ) {
+    return parsed.artifacts && typeof parsed.artifacts === "object" ? parsed.artifacts : {};
+  }
+
+  return parsed && typeof parsed === "object" ? (parsed as ArtifactSnapshot) : {};
 }
 
 export async function loadExecutionEnvelope(runId: string): Promise<ExecutionEnvelope | null> {

@@ -10,6 +10,7 @@ import type {
   TradeThesis,
 } from "./types.js";
 import { validateArtifactData, validateArtifactEnvelope, validateArtifactSnapshot } from "./contracts.js";
+import { currentArtifactVersion, normalizeArtifactEnvelope } from "./migrations.js";
 
 const ARTIFACT_TO_SHARED_STATE: Partial<Record<ArtifactKey, string[]>> = {
   "portfolio.snapshot": ["portfolioSnapshot", "accountSnapshot", "symbols", "drawdownTarget", "portfolioSource"],
@@ -93,8 +94,10 @@ function seedFromSharedState(
     if (data === undefined || store.has(key)) {
       return;
     }
-    store.set(key, buildLegacyArtifact(key, data));
+    const normalized = normalizeArtifactEnvelope(buildLegacyArtifact(key, data));
+    store.set(key, normalized.artifact);
     warnings.push(`Legacy sharedState input '${sourceLabel}' seeded artifact '${key}'.`);
+    warnings.push(...normalized.warnings);
   };
 
   seed("portfolio.snapshot", sharedState.portfolioSnapshot ?? sharedState.accountSnapshot, "portfolioSnapshot/accountSnapshot");
@@ -124,7 +127,9 @@ class InMemoryArtifactStore implements ArtifactStore {
         if (!artifact) {
           continue;
         }
-        this.store.set(artifact.key, cloneArtifact(artifact));
+        const normalized = normalizeArtifactEnvelope(artifact);
+        this.compatibilityWarnings.push(...normalized.warnings);
+        this.store.set(normalized.artifact.key, cloneArtifact(normalized.artifact));
       }
     }
 
@@ -154,11 +159,13 @@ class InMemoryArtifactStore implements ArtifactStore {
   }
 
   set<T = unknown>(artifact: SkillArtifact<T>): SkillArtifact<T> {
-    validateArtifactEnvelope(artifact as SkillArtifact<unknown>);
-    const normalized = cloneArtifact(artifact);
+    const migrated = normalizeArtifactEnvelope(artifact as SkillArtifact<unknown>);
+    validateArtifactEnvelope(migrated.artifact);
+    this.compatibilityWarnings.push(...migrated.warnings);
+    const normalized = cloneArtifact(migrated.artifact);
     this.store.set(artifact.key, normalized);
     if (this.sharedState) {
-      mirrorArtifactToSharedState(artifact.key, artifact.data, this.sharedState);
+      mirrorArtifactToSharedState(artifact.key, normalized.data, this.sharedState);
     }
     return normalized as SkillArtifact<T>;
   }
@@ -200,7 +207,7 @@ export function putArtifact<T>(
 ): SkillArtifact<T> {
   return store.set<T>({
     key: input.key,
-    version: input.version,
+    version: input.version || currentArtifactVersion(input.key),
     producer: input.producer,
     createdAt: new Date().toISOString(),
     data: input.data,

@@ -13,7 +13,7 @@ consumes: [planning.proposals, planning.scenario-matrix, trade.thesis, portfolio
 produces: [policy.plan-decision]
 preferred_handoffs: [official-executor]
 repeatable: false
-artifact_version: 1
+artifact_version: 2
 ---
 
 # Policy Gate

@@ -1,5 +1,6 @@
 import { createCommandIntent } from "../../runtime/okx.js";
 import { putArtifact } from "../../runtime/artifacts.js";
+import { artifactReference } from "../../runtime/migrations.js";
 import type {
   MarketRegime,
   OptionOrderPlanStep,
@@ -346,9 +347,9 @@ function buildProposal(
   );
   const readIntents = buildReadIntents(primarySymbol, context.plane);
   const artifactRefs = [
-    { key: "trade.thesis" as const, producer: "trade-thesis", version: 1 },
-    { key: "portfolio.risk-profile" as const, producer: "portfolio-xray", version: 1 },
-    { key: "market.snapshot" as const, producer: "market-scan", version: 1 },
+    artifactReference(context.artifacts.get("trade.thesis"), "trade.thesis", "trade-thesis"),
+    artifactReference(context.artifacts.get("portfolio.risk-profile"), "portfolio.risk-profile", "portfolio-xray"),
+    artifactReference(context.artifacts.get("market.snapshot"), "market.snapshot", "market-scan"),
   ];
   const baseRiskTags = [
     `strategy:${strategyId}`,

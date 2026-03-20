@@ -1,6 +1,7 @@
 import { executeIntent, inspectOkxEnvironment } from "./okx.js";
 import { createArtifactStore, putArtifact } from "./artifacts.js";
 import { runPlanningGraph } from "./graph-runtime.js";
+import { currentArtifactVersion } from "./migrations.js";
 import { evaluatePolicy } from "./policy.js";
 import { loadSkillHandler, loadSkillRegistry } from "./registry.js";
 import {
@@ -767,7 +768,7 @@ export async function applyRun(runId: string, options: ApplyOptions): Promise<Ru
 
   putArtifact(artifacts, {
     key: "policy.plan-decision",
-    version: 1,
+    version: currentArtifactVersion("policy.plan-decision"),
     producer: "apply-runtime",
     data: decision,
     ruleRefs: decision.ruleRefs ?? [],
@@ -775,7 +776,7 @@ export async function applyRun(runId: string, options: ApplyOptions): Promise<Ru
   });
   putArtifact(artifacts, {
     key: "execution.apply-decision",
-    version: 1,
+    version: currentArtifactVersion("execution.apply-decision"),
     producer: "apply-runtime",
     data: decision,
     ruleRefs: decision.ruleRefs ?? [],

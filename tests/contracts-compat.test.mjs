@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 import { createArtifactStore, putArtifact } from "../dist/runtime/artifacts.js";
 import { applyRun } from "../dist/runtime/executor.js";
 import { validateDoctrineCard, validateRuleCard } from "../dist/runtime/contracts.js";
+import { loadArtifactSnapshot, saveArtifactSnapshot } from "../dist/runtime/trace.js";
 
 test("artifact store reports legacy sharedState seeding as compatibility warnings", () => {
   const sharedState = {
@@ -41,13 +42,25 @@ test("artifact contracts reject invalid canonical payloads", () => {
   assert.throws(() => {
     putArtifact(artifacts, {
       key: "trade.thesis",
-      version: 1,
+      version: 2,
       producer: "test",
       data: {
         directionalRegime: "sideways",
         volState: "normal",
         tailRiskState: "normal",
         hedgeBias: "invalid-bias",
+        conviction: 50,
+        riskBudget: {
+          maxSingleOrderUsd: 5_000,
+          maxPremiumSpendUsd: 500,
+          maxMarginUseUsd: 2_000,
+          maxCorrelationBucketPct: 40,
+        },
+        disciplineState: "normal",
+        preferredStrategies: [],
+        decisionNotes: [],
+        ruleRefs: [],
+        doctrineRefs: [],
       },
     });
   }, /hedgeBias/);
@@ -204,5 +217,121 @@ test("applyRun migrates a legacy run without artifacts.json into the artifact ru
   } finally {
     await rm(runFile, { force: true });
     await rm(join(process.cwd(), ".trademesh", "runs", runId), { recursive: true, force: true });
+  }
+});
+
+test("artifact store migrates v1 artifact payloads to the current canonical version", () => {
+  const artifacts = createArtifactStore({
+    "trade.thesis": {
+      key: "trade.thesis",
+      version: 1,
+      producer: "legacy-test",
+      createdAt: "2026-03-21T10:00:00.000Z",
+      data: {
+        directionalRegime: "sideways",
+        volState: "normal",
+        tailRiskState: "normal",
+        hedgeBias: "protective-put",
+        conviction: 55,
+        riskBudget: {
+          maxSingleOrderUsd: 4_000,
+          maxPremiumSpendUsd: 600,
+          maxMarginUseUsd: 3_000,
+          maxCorrelationBucketPct: 45,
+        },
+        disciplineState: "normal",
+      },
+      ruleRefs: [],
+      doctrineRefs: [],
+    },
+    "planning.proposals": {
+      key: "planning.proposals",
+      version: 1,
+      producer: "legacy-test",
+      createdAt: "2026-03-21T10:00:00.000Z",
+      data: [{ name: "protective-put", reason: "legacy proposal" }],
+      ruleRefs: [],
+      doctrineRefs: [],
+    },
+  });
+
+  const thesis = artifacts.require("trade.thesis");
+  const proposals = artifacts.require("planning.proposals");
+
+  assert.equal(thesis.version, 2);
+  assert.deepEqual(thesis.data.preferredStrategies, ["protective-put", "collar", "perp-short", "de-risk"]);
+  assert.equal(proposals.version, 2);
+  assert.equal(proposals.data[0].strategyId, "protective-put");
+  assert.ok(artifacts.legacyWarnings().some((warning) => warning.includes("Migrated artifact 'trade.thesis'")));
+});
+
+test("saveArtifactSnapshot writes the new envelope format and loadArtifactSnapshot stays backward compatible", async () => {
+  const runId = `run_artifact_envelope_${Date.now()}`;
+  const runDir = join(process.cwd(), ".trademesh", "runs", runId);
+  await mkdir(runDir, { recursive: true });
+
+  try {
+    await saveArtifactSnapshot(runId, {
+      "policy.plan-decision": {
+        key: "policy.plan-decision",
+        version: 2,
+        producer: "policy-gate",
+        createdAt: "2026-03-21T10:00:00.000Z",
+        data: {
+          outcome: "approved",
+          reasons: [],
+          proposal: "protective-put",
+          plane: "demo",
+          executeRequested: false,
+          approvalProvided: true,
+          evaluatedAt: "2026-03-21T10:00:00.000Z",
+          phase: "plan",
+          ruleRefs: [],
+          doctrineRefs: [],
+          breachFlags: [],
+        },
+        ruleRefs: [],
+        doctrineRefs: [],
+      },
+    });
+
+    const raw = JSON.parse(await readFile(join(runDir, "artifacts.json"), "utf8"));
+    assert.equal(raw.kind, "trademesh-artifacts");
+    assert.equal(raw.version, 2);
+
+    const loaded = await loadArtifactSnapshot(runId);
+    assert.ok(loaded["policy.plan-decision"]);
+
+    await writeFile(
+      join(runDir, "artifacts.json"),
+      JSON.stringify(
+        {
+          "policy.plan-decision": {
+            key: "policy.plan-decision",
+            version: 1,
+            producer: "legacy-policy",
+            createdAt: "2026-03-21T10:00:00.000Z",
+            data: {
+              outcome: "approved",
+              reasons: [],
+              proposal: "protective-put",
+              plane: "demo",
+              executeRequested: false,
+              approvalProvided: true,
+              evaluatedAt: "2026-03-21T10:00:00.000Z",
+            },
+            ruleRefs: [],
+            doctrineRefs: [],
+          },
+        },
+        null,
+        2,
+      ),
+    );
+
+    const backwardCompatible = await loadArtifactSnapshot(runId);
+    assert.equal(backwardCompatible["policy.plan-decision"].version, 1);
+  } finally {
+    await rm(runDir, { recursive: true, force: true });
   }
 });

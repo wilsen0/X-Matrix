@@ -13,7 +13,7 @@ consumes: [trade.thesis, portfolio.risk-profile, market.snapshot]
 produces: [planning.proposals]
 preferred_handoffs: [scenario-sim]
 repeatable: false
-artifact_version: 1
+artifact_version: 2
 ---
 
 # Hedge Planner

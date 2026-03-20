@@ -13,7 +13,7 @@ consumes: [portfolio.snapshot]
 produces: [market.snapshot, market.regime]
 preferred_handoffs: [trade-thesis]
 repeatable: false
-artifact_version: 1
+artifact_version: 2
 ---
 
 # Market Scan
