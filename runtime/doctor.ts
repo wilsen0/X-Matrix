@@ -26,7 +26,15 @@ const PLANNING_PACK = [
   "scenario-sim",
   "policy-gate",
 ];
-const APPLY_PACK = [...PLANNING_PACK, "official-executor", "replay"];
+const APPLY_PACK = [
+  ...PLANNING_PACK,
+  "approval-gate",
+  "live-guard",
+  "idempotency-gate",
+  "official-executor",
+  "operator-summarizer",
+  "replay",
+];
 
 export interface RunDoctorOptions {
   probeMode?: ProbeMode;

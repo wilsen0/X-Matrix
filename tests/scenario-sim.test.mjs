@@ -62,19 +62,19 @@ test("scenario-sim enriches proposals with the fixed scenario matrix", async () 
   });
   putArtifact(context.artifacts, {
     key: "planning.proposals",
-    version: 2,
+    version: 3,
     producer: "hedge-planner",
     data: sharedState.proposals,
   });
   putArtifact(context.artifacts, {
     key: "trade.thesis",
-    version: 2,
+    version: 3,
     producer: "trade-thesis",
     data: sharedState.tradeThesis,
   });
   putArtifact(context.artifacts, {
     key: "portfolio.risk-profile",
-    version: 2,
+    version: 3,
     producer: "portfolio-xray",
     data: sharedState.portfolioRiskProfile,
   });

@@ -53,19 +53,19 @@ test("trade-thesis converts market regime and portfolio risk into a canonical th
   });
   putArtifact(context.artifacts, {
     key: "portfolio.snapshot",
-    version: 2,
+    version: 3,
     producer: "portfolio-xray",
     data: sharedState.portfolioSnapshot,
   });
   putArtifact(context.artifacts, {
     key: "portfolio.risk-profile",
-    version: 2,
+    version: 3,
     producer: "portfolio-xray",
     data: sharedState.portfolioRiskProfile,
   });
   putArtifact(context.artifacts, {
     key: "market.regime",
-    version: 2,
+    version: 3,
     producer: "market-scan",
     data: sharedState.marketRegime,
   });

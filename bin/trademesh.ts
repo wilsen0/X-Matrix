@@ -81,9 +81,9 @@ function printHelp(): void {
   trademesh rehearse demo [--execute] [--approve] [--json]
   trademesh replay <run-id> [--skill <name>] [--json]
   trademesh retry <run-id> [--json]
-  trademesh reconcile <run-id> [--json]
+  trademesh reconcile <run-id> [--source auto|client-id|fallback] [--window-min <n>] [--json]
   trademesh export <run-id> [--format md|json] [--output <path>] [--json]
-  trademesh apply <run-id> [--plane demo|live] [--profile demo|live] [--proposal <name>] [--approve] [--approved-by <name>] [--approval-reason <text>] [--execute] [--json]`);
+  trademesh apply <run-id> [--plane demo|live] [--profile demo|live] [--proposal <name>] [--approve] [--approved-by <name>] [--approval-reason <text>] [--live-confirm YES_LIVE_EXECUTION] [--max-order-usd <n>] [--max-total-usd <n>] [--execute] [--json]`);
 }
 
 function inferPlaneFromGoal(goal: string): ExecutionPlane {
@@ -218,6 +218,21 @@ function readProbeMode(value: string | boolean | undefined): ProbeMode {
     return value;
   }
   return "passive";
+}
+
+function parsePositiveNumber(value: string | boolean | undefined): number | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const parsed = Number(value.trim());
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function parseReconcileSource(value: string | boolean | undefined): "auto" | "client-id" | "fallback" | undefined {
+  if (value === "auto" || value === "client-id" || value === "fallback") {
+    return value;
+  }
+  return undefined;
 }
 
 async function readInputArtifacts(pathValue: string | boolean | undefined): Promise<ArtifactSnapshot | undefined> {
@@ -394,6 +409,9 @@ async function main(): Promise<void> {
         typeof parsed.flags["approval-reason"] === "string"
           ? parsed.flags["approval-reason"]
           : undefined,
+      liveConfirm: typeof parsed.flags["live-confirm"] === "string" ? parsed.flags["live-confirm"] : undefined,
+      maxOrderUsd: parsePositiveNumber(parsed.flags["max-order-usd"]),
+      maxTotalUsd: parsePositiveNumber(parsed.flags["max-total-usd"]),
       execute: parsed.flags.execute === true,
     });
 
@@ -420,7 +438,10 @@ async function main(): Promise<void> {
       throw new Error("Missing run id. Example: trademesh reconcile run_20260319_001");
     }
 
-    const record = await reconcileRun(runId);
+    const record = await reconcileRun(runId, {
+      source: parseReconcileSource(parsed.flags.source),
+      windowMin: parsePositiveNumber(parsed.flags["window-min"]),
+    });
     console.log(jsonMode ? JSON.stringify(record, null, 2) : formatRunSummary(record));
     return;
   }

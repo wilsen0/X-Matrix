@@ -1532,6 +1532,7 @@ export async function retryRun(runId: string): Promise<RunRecord> {
   const executionOk = executionOutcome.finalResults.every((result) => result.ok);
   const status: RunStatus = executionOk ? "executed" : "failed";
   const retryExecution: ExecutionRecord = {
+    executionId: `${record.id}:exec:${record.executions.length + 1}`,
     requestedAt: now(),
     mode: "execute",
     plane: latestFailedExecution.plane,
@@ -1953,6 +1954,7 @@ export async function rehearseDemo(options: RehearseOptions = {}): Promise<RunRe
   const executionOk = executionOutcome.finalResults.every((result) => result.ok);
   const status = nextStatusFromPolicy(decision.outcome, Boolean(options.execute), executionOk);
   const execution: ExecutionRecord = {
+    executionId: `${runId}:exec:1`,
     requestedAt: now(),
     mode: options.execute ? "execute" : "dry-run",
     plane: "demo",
@@ -2519,8 +2521,8 @@ function exportBundlePayload(record: RunRecord, artifacts: ArtifactStore): Recor
   const approvalTicket = latestApprovalTicket(artifacts);
   const reconciliationSummary = latestReconciliation(artifacts);
   const operatorSummary =
-    artifacts.get<Record<string, unknown>>("report.operator-summary")?.data ??
-    buildOperatorSummary(record, artifacts);
+    (artifacts.get<Record<string, unknown>>("report.operator-summary")?.data ??
+      buildOperatorSummary(record, artifacts)) as unknown as Record<string, unknown>;
 
   return {
     runId: record.id,
@@ -2627,7 +2629,7 @@ export async function exportRun(runId: string, options: ExportOptions = {}): Pro
   const paths = exportPaths(runId, options.outputPath);
   await fs.mkdir(paths.outputDir, { recursive: true });
 
-  let operatorSummary: Record<string, unknown>;
+  let operatorSummary: OperatorSummaryV3 | Record<string, unknown>;
   if (operatorManifest) {
     await executeSkill(operatorManifest, {
       runId: record.id,

@@ -46,13 +46,13 @@ test("policy-gate validates proposal/account snapshot and returns guardrail outp
   });
   putArtifact(context.artifacts, {
     key: "planning.proposals",
-    version: 2,
+    version: 3,
     producer: "hedge-planner",
     data: sharedState.proposals,
   });
   putArtifact(context.artifacts, {
     key: "portfolio.snapshot",
-    version: 2,
+    version: 3,
     producer: "portfolio-xray",
     data: {
       source: "okx-cli",
@@ -68,7 +68,7 @@ test("policy-gate validates proposal/account snapshot and returns guardrail outp
   });
   putArtifact(context.artifacts, {
     key: "trade.thesis",
-    version: 2,
+    version: 3,
     producer: "trade-thesis",
     data: {
       directionalRegime: "sideways",

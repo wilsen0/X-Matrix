@@ -71,19 +71,19 @@ test("official-executor materializes protective-put option place-order command",
     });
     putArtifact(context.artifacts, {
       key: "planning.proposals",
-      version: 2,
+      version: 3,
       producer: "hedge-planner",
       data: sharedState.proposals,
     });
     putArtifact(context.artifacts, {
       key: "policy.plan-decision",
-      version: 2,
+      version: 3,
       producer: "policy-gate",
       data: sharedState.policyPlanDecision,
     });
     putArtifact(context.artifacts, {
       key: "trade.thesis",
-      version: 2,
+      version: 3,
       producer: "trade-thesis",
       data: sharedState.tradeThesis,
     });
@@ -179,19 +179,19 @@ test("official-executor injects swap --clOrdId from deterministic clientOrderRef
     });
     putArtifact(context.artifacts, {
       key: "planning.proposals",
-      version: 2,
+      version: 3,
       producer: "hedge-planner",
       data: sharedState.proposals,
     });
     putArtifact(context.artifacts, {
       key: "policy.plan-decision",
-      version: 2,
+      version: 3,
       producer: "policy-gate",
       data: sharedState.policyPlanDecision,
     });
     putArtifact(context.artifacts, {
       key: "trade.thesis",
-      version: 2,
+      version: 3,
       producer: "trade-thesis",
       data: sharedState.tradeThesis,
     });

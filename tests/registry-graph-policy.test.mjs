@@ -39,7 +39,7 @@ test("graph runtime honors artifact dependencies and preferred handoffs", async 
       produces: ["portfolio.snapshot"],
       preferredHandoffs: ["planner-a"],
       repeatable: false,
-      artifactVersion: 2,
+      artifactVersion: 3,
       standaloneCommand: "trademesh skills run sensor-a \"<goal>\"",
       standaloneRoute: ["sensor-a"],
       standaloneInputs: ["goal"],
@@ -61,7 +61,7 @@ test("graph runtime honors artifact dependencies and preferred handoffs", async 
       produces: ["trade.thesis"],
       preferredHandoffs: ["guardrail-a"],
       repeatable: false,
-      artifactVersion: 2,
+      artifactVersion: 3,
       standaloneCommand: "trademesh skills run planner-a \"<goal>\"",
       standaloneRoute: ["sensor-a", "planner-a"],
       standaloneInputs: ["goal"],
@@ -83,7 +83,7 @@ test("graph runtime honors artifact dependencies and preferred handoffs", async 
       produces: ["policy.plan-decision"],
       preferredHandoffs: [],
       repeatable: false,
-      artifactVersion: 2,
+      artifactVersion: 3,
       standaloneCommand: "trademesh skills run guardrail-a \"<goal>\"",
       standaloneRoute: ["sensor-a", "planner-a", "guardrail-a"],
       standaloneInputs: ["goal"],
@@ -101,7 +101,7 @@ test("graph runtime honors artifact dependencies and preferred handoffs", async 
       if (manifest.name === "sensor-a") {
         putArtifact(context.artifacts, {
           key: "portfolio.snapshot",
-          version: 2,
+          version: 3,
           producer: manifest.name,
           data: { symbols: ["BTC"] },
         });
@@ -109,7 +109,7 @@ test("graph runtime honors artifact dependencies and preferred handoffs", async 
       if (manifest.name === "planner-a") {
         putArtifact(context.artifacts, {
           key: "trade.thesis",
-          version: 2,
+          version: 3,
           producer: manifest.name,
           data: { hedgeBias: "perp" },
         });
@@ -117,7 +117,7 @@ test("graph runtime honors artifact dependencies and preferred handoffs", async 
       if (manifest.name === "guardrail-a") {
         putArtifact(context.artifacts, {
           key: "policy.plan-decision",
-          version: 2,
+          version: 3,
           producer: manifest.name,
           data: { outcome: "approved" },
         });
@@ -155,7 +155,7 @@ test("policy evaluator returns the same decision in plan/apply parity when input
   const artifacts = createArtifactStore();
   putArtifact(artifacts, {
     key: "portfolio.snapshot",
-    version: 2,
+    version: 3,
     producer: "test",
     data: {
       source: "okx-cli",
@@ -171,7 +171,7 @@ test("policy evaluator returns the same decision in plan/apply parity when input
   });
   putArtifact(artifacts, {
     key: "portfolio.risk-profile",
-    version: 2,
+    version: 3,
     producer: "test",
     data: {
       directionalExposure: { longUsd: 15_000, shortUsd: 0, netUsd: 15_000, dominantSide: "long" },
@@ -188,7 +188,7 @@ test("policy evaluator returns the same decision in plan/apply parity when input
   });
   putArtifact(artifacts, {
     key: "market.regime",
-    version: 2,
+    version: 3,
     producer: "test",
     data: {
       symbols: ["BTC"],
@@ -205,7 +205,7 @@ test("policy evaluator returns the same decision in plan/apply parity when input
   });
   putArtifact(artifacts, {
     key: "trade.thesis",
-    version: 2,
+    version: 3,
     producer: "test",
     data: {
       directionalRegime: "uptrend",

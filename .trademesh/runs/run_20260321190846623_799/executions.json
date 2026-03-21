@@ -1,0 +1,145 @@
+{
+  "kind": "trademesh-executions",
+  "version": 3,
+  "runId": "run_20260321190846623_799",
+  "savedAt": "2026-03-21T19:08:46.980Z",
+  "executions": [
+    {
+      "executionId": "run_20260321190846623_799:exec:1",
+      "requestedAt": "2026-03-21T19:08:46.931Z",
+      "mode": "dry-run",
+      "plane": "demo",
+      "proposal": "protective-put",
+      "approvalProvided": true,
+      "idempotencyChecked": false,
+      "reconciliationRequired": false,
+      "reconciliationState": "none",
+      "status": "dry_run",
+      "results": [
+        {
+          "intent": {
+            "intentId": "run_20260321190846623_799:protective-put:read-balance",
+            "stepIndex": 0,
+            "safeToRetry": true,
+            "command": "okx account balance --profile demo --json",
+            "args": [
+              "okx",
+              "account",
+              "balance",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "account",
+            "requiresWrite": false,
+            "reason": "Refresh account balance before materializing execution."
+          },
+          "ok": true,
+          "exitCode": 0,
+          "stdout": "",
+          "stderr": "",
+          "skipped": true,
+          "dryRun": true,
+          "startedAt": "2026-03-21T19:08:46.931Z",
+          "finishedAt": "2026-03-21T19:08:46.931Z",
+          "durationMs": 0
+        },
+        {
+          "intent": {
+            "intentId": "run_20260321190846623_799:protective-put:read-positions",
+            "stepIndex": 1,
+            "safeToRetry": true,
+            "command": "okx account positions --profile demo --json",
+            "args": [
+              "okx",
+              "account",
+              "positions",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "account",
+            "requiresWrite": false,
+            "reason": "Refresh account positions before materializing execution."
+          },
+          "ok": true,
+          "exitCode": 0,
+          "stdout": "",
+          "stderr": "",
+          "skipped": true,
+          "dryRun": true,
+          "startedAt": "2026-03-21T19:08:46.931Z",
+          "finishedAt": "2026-03-21T19:08:46.931Z",
+          "durationMs": 0
+        },
+        {
+          "intent": {
+            "intentId": "run_20260321190846623_799:protective-put:read-ticker:btc",
+            "stepIndex": 2,
+            "safeToRetry": true,
+            "command": "okx market ticker BTC-USDT --profile demo --json",
+            "args": [
+              "okx",
+              "market",
+              "ticker",
+              "BTC-USDT",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "market",
+            "requiresWrite": false,
+            "reason": "Refresh BTC price before materializing execution."
+          },
+          "ok": true,
+          "exitCode": 0,
+          "stdout": "",
+          "stderr": "",
+          "skipped": true,
+          "dryRun": true,
+          "startedAt": "2026-03-21T19:08:46.931Z",
+          "finishedAt": "2026-03-21T19:08:46.931Z",
+          "durationMs": 0
+        },
+        {
+          "intent": {
+            "intentId": "run_20260321190846623_799:protective-put:write:3",
+            "stepIndex": 3,
+            "safeToRetry": false,
+            "clientOrderRef": "tm1928fbea5cbe792a24291c",
+            "command": "okx option place-order --instId BTC-USD-260327-67000-P --side buy --sz 1 --px 0.0100 --profile demo --json",
+            "args": [
+              "okx",
+              "option",
+              "place-order",
+              "--instId",
+              "BTC-USD-260327-67000-P",
+              "--side",
+              "buy",
+              "--sz",
+              "1",
+              "--px",
+              "0.0100",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "option",
+            "requiresWrite": true,
+            "reason": "Buy downside convexity for the primary concentration symbol."
+          },
+          "ok": true,
+          "exitCode": 0,
+          "stdout": "",
+          "stderr": "",
+          "skipped": true,
+          "dryRun": true,
+          "startedAt": "2026-03-21T19:08:46.931Z",
+          "finishedAt": "2026-03-21T19:08:46.931Z",
+          "durationMs": 0
+        }
+      ]
+    }
+  ],
+  "errors": []
+}

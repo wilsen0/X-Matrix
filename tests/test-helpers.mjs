@@ -229,7 +229,7 @@ export function createContext({
       produces: [],
       preferredHandoffs: [],
       repeatable: false,
-      artifactVersion: 2,
+      artifactVersion: 3,
       standaloneCommand: `trademesh skills run ${skill} "<goal>"`,
       standaloneRoute: [skill],
       standaloneInputs: ["goal"],

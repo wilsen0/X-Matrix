@@ -65,19 +65,19 @@ test("hedge-planner emits ranked proposal set with score breakdowns and order pl
   });
   putArtifact(context.artifacts, {
     key: "portfolio.risk-profile",
-    version: 2,
+    version: 3,
     producer: "portfolio-xray",
     data: sharedState.portfolioRiskProfile,
   });
   putArtifact(context.artifacts, {
     key: "market.snapshot",
-    version: 2,
+    version: 3,
     producer: "market-scan",
     data: sharedState.marketSnapshot,
   });
   putArtifact(context.artifacts, {
     key: "trade.thesis",
-    version: 2,
+    version: 3,
     producer: "trade-thesis",
     data: sharedState.tradeThesis,
   });

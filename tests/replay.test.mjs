@@ -74,7 +74,7 @@ async function writeReplayFixture(runId) {
     JSON.stringify(
       {
         kind: "trademesh-trace",
-        version: 2,
+        version: 3,
         runId,
         goal: "demo goal",
         plane: "demo",
@@ -95,7 +95,7 @@ async function writeReplayFixture(runId) {
     JSON.stringify(
       {
         kind: "trademesh-policy",
-        version: 2,
+        version: 3,
         runId,
         savedAt: "2026-03-20T09:02:00.000Z",
         decision: {
@@ -122,7 +122,7 @@ async function writeReplayFixture(runId) {
     JSON.stringify(
       {
         kind: "trademesh-executions",
-        version: 2,
+        version: 3,
         runId,
         savedAt: "2026-03-20T09:03:00.000Z",
         executions: [],
@@ -138,13 +138,13 @@ async function writeReplayFixture(runId) {
     JSON.stringify(
       {
         kind: "trademesh-artifacts",
-        version: 2,
+        version: 3,
         runId,
         savedAt: "2026-03-20T09:02:00.000Z",
         artifacts: {
           "portfolio.snapshot": {
             key: "portfolio.snapshot",
-            version: 2,
+            version: 3,
             producer: "portfolio-xray",
             createdAt: "2026-03-20T09:00:00.000Z",
             data: { symbols: ["BTC"] },
@@ -153,7 +153,7 @@ async function writeReplayFixture(runId) {
           },
           "policy.plan-decision": {
             key: "policy.plan-decision",
-            version: 2,
+            version: 3,
             producer: "policy-gate",
             createdAt: "2026-03-20T09:02:00.000Z",
             data: { outcome: "approved" },

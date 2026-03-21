@@ -43,7 +43,7 @@ test("artifact store uses sharedState as mirror only and does not seed legacy in
 
   putArtifact(artifacts, {
     key: "trade.thesis",
-    version: 2,
+    version: 3,
     producer: "test",
     data: {
       directionalRegime: "sideways",
@@ -74,7 +74,7 @@ test("artifact contracts reject invalid canonical payloads", () => {
   assert.throws(() => {
     putArtifact(artifacts, {
       key: "trade.thesis",
-      version: 2,
+      version: 3,
       producer: "test",
       data: {
         directionalRegime: "sideways",
@@ -160,7 +160,7 @@ test("applyRun rejects runs without artifacts.json in current development mode",
     JSON.stringify(
         {
           kind: "trademesh-run",
-          version: 2,
+          version: 3,
           id: runId,
           goal: "legacy run hedge",
           plane: "demo",
@@ -286,7 +286,7 @@ test("artifact store rejects outdated artifact payload versions", () => {
         doctrineRefs: [],
       },
     });
-  }, /must use current version 2/i);
+  }, /must use current version 3/i);
 });
 
 test("saveArtifactSnapshot writes the current envelope format", async () => {
@@ -298,7 +298,7 @@ test("saveArtifactSnapshot writes the current envelope format", async () => {
     await saveArtifactSnapshot(runId, {
       "policy.plan-decision": {
         key: "policy.plan-decision",
-        version: 2,
+        version: 3,
         producer: "policy-gate",
         createdAt: "2026-03-21T10:00:00.000Z",
         data: {
@@ -321,7 +321,7 @@ test("saveArtifactSnapshot writes the current envelope format", async () => {
 
     const raw = JSON.parse(await readFile(join(runDir, "artifacts.json"), "utf8"));
     assert.equal(raw.kind, "trademesh-artifacts");
-    assert.equal(raw.version, 2);
+    assert.equal(raw.version, 3);
 
     const loaded = await loadArtifactSnapshot(runId);
     assert.ok(loaded["policy.plan-decision"]);
@@ -342,7 +342,7 @@ test("loadArtifactSnapshot rejects legacy raw artifact snapshots", async () => {
         {
           "policy.plan-decision": {
             key: "policy.plan-decision",
-            version: 2,
+            version: 3,
             producer: "legacy-policy",
             createdAt: "2026-03-21T10:00:00.000Z",
             data: {
@@ -378,7 +378,7 @@ test("saveRun writes current trace/policy/execution envelopes", async () => {
 
   const record = {
     kind: "trademesh-run",
-    version: 2,
+    version: 3,
     id: runId,
     goal: "validate persistence envelopes",
     plane: "demo",
@@ -445,11 +445,11 @@ test("saveRun writes current trace/policy/execution envelopes", async () => {
     const execution = await loadExecutionEnvelope(runId);
 
     assert.equal(trace?.kind, "trademesh-trace");
-    assert.equal(trace?.version, 2);
+    assert.equal(trace?.version, 3);
     assert.equal(policy?.kind, "trademesh-policy");
-    assert.equal(policy?.version, 2);
+    assert.equal(policy?.version, 3);
     assert.equal(execution?.kind, "trademesh-executions");
-    assert.equal(execution?.version, 2);
+    assert.equal(execution?.version, 3);
   } finally {
     await rm(join(process.cwd(), "runs", `${runId}.json`), { force: true });
     await rm(join(process.cwd(), ".trademesh", "runs", runId), { recursive: true, force: true });

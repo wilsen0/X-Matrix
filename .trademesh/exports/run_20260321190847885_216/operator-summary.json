@@ -1,0 +1,28 @@
+{
+  "runId": "run_20260321190847885_216",
+  "plane": "demo",
+  "status": "blocked",
+  "isExecutable": false,
+  "blockers": [
+    "policy_blocked_or_runtime_blocked",
+    "correlation bucket correlated-btc at 100.0% exceeds 40.0%"
+  ],
+  "approval": {
+    "provided": true,
+    "ticketId": null,
+    "approvedBy": null,
+    "reason": null
+  },
+  "idempotency": {
+    "checked": false,
+    "hitCount": 0,
+    "ledgerSeq": null
+  },
+  "reconciliation": {
+    "state": "none",
+    "required": false
+  },
+  "nextSafeAction": "node dist/bin/trademesh.js export run_20260321190847885_216",
+  "requiresHumanAction": true,
+  "generatedAt": "2026-03-21T19:08:48.030Z"
+}
