@@ -25,10 +25,12 @@ TradeMesh is optimized for operational clarity and operator trust:
 - `skills inspect` and `skills graph` expose the mesh topology from skill manifests
 - `skills run <name>` executes a manifest-declared standalone mini-workflow per skill
 - `plan` produces ranked proposals, actionability labels, and a policy preview
-- `apply` keeps dry-run first and routes every write through `official-executor`
+- `apply` keeps dry-run first and routes every write through `official-executor` with apply-only approval tickets
+- write intents use local idempotency ledger checks before execute
+- `reconcile` converges ambiguous/pending write outcomes without replaying writes
 - `rehearse demo` validates policy + executor with a deterministic rehearsal route
 - `replay` reconstructs the route, evidence, policy, and execution receipt
-- `export` materializes a run report plus a machine-readable evidence bundle
+- `export` materializes a run report, machine-readable bundle, and operator summary
 
 ## Quick Start
 
@@ -40,7 +42,8 @@ node dist/bin/trademesh.js skills ls
 node dist/bin/trademesh.js skills graph
 node dist/bin/trademesh.js skills run hedge-planner "hedge my BTC drawdown with demo first" --plane demo
 node dist/bin/trademesh.js plan "hedge my BTC drawdown with demo first" --plane demo --symbol BTC --max-drawdown 4 --intent protect-downside --horizon swing
-node dist/bin/trademesh.js apply <run-id> --plane demo --proposal protective-put --approve
+node dist/bin/trademesh.js apply <run-id> --plane demo --proposal protective-put --approve --approved-by alice
+node dist/bin/trademesh.js reconcile <run-id>
 node dist/bin/trademesh.js rehearse demo --approve
 node dist/bin/trademesh.js replay <run-id>
 node dist/bin/trademesh.js export <run-id>
@@ -58,10 +61,11 @@ pnpm test
 - `trademesh skills graph [--json]`
 - `trademesh runs list`
 - `trademesh plan "<goal>" [--plane research|demo|live] [--profile demo|live] [--symbol <CSV>] [--max-drawdown <number>] [--intent protect-downside|reduce-beta|de-risk] [--horizon intraday|swing|position] [--json]`
-- `trademesh apply <run-id> [--plane demo|live] [--profile demo|live] [--proposal <name>] [--approve] [--execute] [--json]`
+- `trademesh apply <run-id> [--plane demo|live] [--profile demo|live] [--proposal <name>] [--approve] [--approved-by <name>] [--approval-reason <text>] [--execute] [--json]`
 - `trademesh rehearse demo [--execute] [--approve] [--json]`
 - `trademesh replay <run-id> [--skill <name>] [--json]`
 - `trademesh retry <run-id> [--json]`
+- `trademesh reconcile <run-id> [--json]`
 - `trademesh export <run-id> [--format md|json] [--output <path>] [--json]`
 
 ## Structured Goal Intake
@@ -80,6 +84,8 @@ This makes planning more deterministic than the earlier prompt-only heuristics.
 - `research` blocks all write intents
 - `demo` defaults to preview-first, and `--execute` is explicit
 - `live` still requires `--approve`
+- `apply --execute` requires `--approve --approved-by <name>` and emits `approval.ticket`
+- write intents are deduplicated through `.trademesh/ledgers/idempotency.json`
 - every plan/apply/replay persists an auditable run record
 - write intents are never auto-retried; only safe read intents may be retried
 
@@ -104,6 +110,14 @@ This makes planning more deterministic than the earlier prompt-only heuristics.
   - `env-probe -> market-probe -> account-probe -> diagnosis-synthesizer -> rehearsal-planner -> policy-gate -> official-executor`
 - rehearsal writes `operations.rehearsal-plan` and `operations.rehearsal-receipt` artifacts
 
+## Approval + Reconcile
+
+- `apply` is the only approval injection point; there is no standalone `approve` command
+- `approval-gate` creates `approval.ticket` for supervised write execution
+- idempotent write hits are skipped as `skipped(idempotent-hit)`
+- `reconcile <run-id>` updates `execution.reconciliation` and converges pending/ambiguous write state
+- `export` writes `report.md`, `bundle.json`, and `operator-summary.json`
+
 ## Hard Cutover
 
 - run files are now `version: 2` and require `routeKind`
@@ -118,7 +132,8 @@ Use this sequence for a live demo:
 node dist/bin/trademesh.js doctor
 node dist/bin/trademesh.js skills graph
 node dist/bin/trademesh.js plan "hedge my BTC drawdown with demo first" --plane demo --symbol BTC --max-drawdown 4 --intent protect-downside --horizon swing
-node dist/bin/trademesh.js apply <run-id> --plane demo --proposal protective-put --approve
+node dist/bin/trademesh.js apply <run-id> --plane demo --proposal protective-put --approve --approved-by alice --execute
+node dist/bin/trademesh.js reconcile <run-id>
 node dist/bin/trademesh.js replay <run-id>
 node dist/bin/trademesh.js export <run-id>
 ```

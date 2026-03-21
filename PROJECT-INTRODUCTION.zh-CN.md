@@ -63,7 +63,7 @@ TradeMesh 更接近以下产品，而不是聊天助手：
 - 通过 `rehearse demo` 做标准化演练并生成 rehearsal receipt
 - 在 dry-run 模式下生成结构化命令预览
 - replay 一次 run 的完整链路
-- export 一份可阅读的 `report.md` 和一份可集成的 `bundle.json`
+- export 一份可阅读的 `report.md`、一份可集成的 `bundle.json`、以及 operator 视角的 `operator-summary.json`
 
 典型命令如下：
 
@@ -77,7 +77,8 @@ node dist/bin/trademesh.js plan "hedge my BTC drawdown with demo first" \
   --max-drawdown 4 \
   --intent protect-downside \
   --horizon swing
-node dist/bin/trademesh.js apply <run-id> --plane demo --proposal protective-put --approve
+node dist/bin/trademesh.js apply <run-id> --plane demo --proposal protective-put --approve --approved-by alice --execute
+node dist/bin/trademesh.js reconcile <run-id>
 node dist/bin/trademesh.js rehearse demo --approve
 node dist/bin/trademesh.js replay <run-id>
 node dist/bin/trademesh.js export <run-id>
@@ -212,6 +213,9 @@ TradeMesh 采用 artifact handoff。当前关键 artifact 包括：
 - `policy.plan-decision`
 - `execution.intent-bundle`
 - `execution.apply-decision`
+- `approval.ticket`
+- `execution.reconciliation`
+- `report.operator-summary`
 
 这么做的好处是：
 
@@ -264,8 +268,17 @@ TradeMesh 采用 artifact handoff。当前关键 artifact 包括：
 
 - `report.md`
 - `bundle.json`
+- `operator-summary.json`
 
 前者适合阅读和审阅，后者适合归档和系统集成。
+
+### 8.7 Approval + Idempotency + Reconcile
+
+M2 阶段新增了三条关键运行时护栏：
+
+- `apply --execute` 必须显式 `--approve --approved-by <name>`，并落 `approval.ticket`
+- 写 intent 在执行前会命中本地幂等 ledger（`.trademesh/ledgers/idempotency.json`）做去重
+- 状态不确定时使用 `reconcile <run-id>` 收敛为 `matched / ambiguous / failed`
 
 ### 8.5 Standalone Skill Contract
 
