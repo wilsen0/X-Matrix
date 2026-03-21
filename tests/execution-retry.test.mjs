@@ -6,6 +6,8 @@ import test from "node:test";
 import { applyRun, createPlan } from "../dist/runtime/executor.js";
 import { buildReferencePayloads, cleanupRunArtifacts } from "./test-helpers.mjs";
 
+const LEDGER_PATH = join(process.cwd(), ".trademesh", "ledgers", "idempotency.json");
+
 function shellSafeJson(payload) {
   return JSON.stringify(payload).replace(/'/g, `'\"'\"'`);
 }
@@ -88,6 +90,7 @@ test("write intents are never auto retried even when the failure looks retryable
   let runId = null;
   const previousCorrelationCap = process.env.TRADEMESH_MAX_CORRELATION_BUCKET_PCT;
   process.env.TRADEMESH_MAX_CORRELATION_BUCKET_PCT = "100";
+  await rm(LEDGER_PATH, { force: true });
   try {
     await withRetryAwareMockOkx(payloads, async (attemptsPath) => {
       const planned = await createPlan("hedge my btc drawdown with demo first", { plane: "demo" });
@@ -119,4 +122,5 @@ test("write intents are never auto retried even when the failure looks retryable
   }
 
   await cleanupRunArtifacts(runId);
+  await rm(LEDGER_PATH, { force: true });
 });

@@ -1,0 +1,41 @@
+{
+  "kind": "trademesh-policy",
+  "version": 2,
+  "runId": "run_20260321182254050_654",
+  "savedAt": "2026-03-21T18:22:54.208Z",
+  "decision": {
+    "outcome": "blocked",
+    "reasons": [
+      "correlation bucket correlated-btc at 100.0% exceeds 40.0%"
+    ],
+    "proposal": "protective-put",
+    "plane": "demo",
+    "executeRequested": true,
+    "approvalProvided": true,
+    "evaluatedAt": "2026-03-21T18:22:54.203Z",
+    "phase": "apply",
+    "ruleRefs": [
+      "max-single-order",
+      "max-total-exposure",
+      "max-symbol-concentration"
+    ],
+    "doctrineRefs": [
+      "black-swan-risk"
+    ],
+    "breachFlags": [
+      "account-risk"
+    ],
+    "budgetSnapshot": {
+      "maxSingleOrderUsd": 400,
+      "maxTotalOrderUsd": 1200,
+      "maxTotalExposureUsd": 60000,
+      "maxMarginUseUsd": 3600,
+      "maxPremiumSpendUsd": 300,
+      "maxCorrelationBucketPct": 40,
+      "marketVolatility": 0.014285714285714285,
+      "volatilityAdjusted": false,
+      "leverageAdjusted": false
+    },
+    "capabilityGaps": []
+  }
+}

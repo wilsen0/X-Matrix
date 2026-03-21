@@ -1,0 +1,41 @@
+{
+  "kind": "trademesh-policy",
+  "version": 2,
+  "runId": "run_20260321182355707_766",
+  "savedAt": "2026-03-21T18:23:55.905Z",
+  "decision": {
+    "outcome": "blocked",
+    "reasons": [
+      "scenario breaches detected: correlation_to_one:correlation-bucket"
+    ],
+    "proposal": "protective-put",
+    "plane": "demo",
+    "executeRequested": true,
+    "approvalProvided": true,
+    "evaluatedAt": "2026-03-21T18:23:55.902Z",
+    "phase": "apply",
+    "ruleRefs": [
+      "max-single-order",
+      "max-total-exposure",
+      "max-symbol-concentration"
+    ],
+    "doctrineRefs": [
+      "black-swan-risk"
+    ],
+    "breachFlags": [
+      "scenario-breach"
+    ],
+    "budgetSnapshot": {
+      "maxSingleOrderUsd": 400,
+      "maxTotalOrderUsd": 1200,
+      "maxTotalExposureUsd": 60000,
+      "maxMarginUseUsd": 3600,
+      "maxPremiumSpendUsd": 300,
+      "maxCorrelationBucketPct": 40,
+      "marketVolatility": 0.014285714285714285,
+      "volatilityAdjusted": false,
+      "leverageAdjusted": false
+    },
+    "capabilityGaps": []
+  }
+}

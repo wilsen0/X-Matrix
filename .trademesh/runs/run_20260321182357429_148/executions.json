@@ -1,0 +1,137 @@
+{
+  "kind": "trademesh-executions",
+  "version": 2,
+  "runId": "run_20260321182357429_148",
+  "savedAt": "2026-03-21T18:23:57.586Z",
+  "executions": [
+    {
+      "requestedAt": "2026-03-21T18:23:57.583Z",
+      "mode": "execute",
+      "plane": "demo",
+      "proposal": "protective-put",
+      "approvalProvided": true,
+      "approvalTicketId": "apt_run_20260321182357429_148_protective-put_20260321182357",
+      "idempotencyChecked": false,
+      "reconciliationState": "pending",
+      "status": "blocked",
+      "results": [
+        {
+          "intent": {
+            "intentId": "run_20260321182357429_148:protective-put:read-balance",
+            "stepIndex": 0,
+            "safeToRetry": true,
+            "command": "okx account balance --profile demo --json",
+            "args": [
+              "okx",
+              "account",
+              "balance",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "account",
+            "requiresWrite": false,
+            "reason": "Refresh account balance before materializing execution."
+          },
+          "ok": false,
+          "exitCode": null,
+          "stdout": "",
+          "stderr": "scenario breaches detected: correlation_to_one:correlation-bucket",
+          "skipped": true,
+          "dryRun": false,
+          "durationMs": 0
+        },
+        {
+          "intent": {
+            "intentId": "run_20260321182357429_148:protective-put:read-positions",
+            "stepIndex": 1,
+            "safeToRetry": true,
+            "command": "okx account positions --profile demo --json",
+            "args": [
+              "okx",
+              "account",
+              "positions",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "account",
+            "requiresWrite": false,
+            "reason": "Refresh account positions before materializing execution."
+          },
+          "ok": false,
+          "exitCode": null,
+          "stdout": "",
+          "stderr": "scenario breaches detected: correlation_to_one:correlation-bucket",
+          "skipped": true,
+          "dryRun": false,
+          "durationMs": 0
+        },
+        {
+          "intent": {
+            "intentId": "run_20260321182357429_148:protective-put:read-ticker:btc",
+            "stepIndex": 2,
+            "safeToRetry": true,
+            "command": "okx market ticker BTC-USDT --profile demo --json",
+            "args": [
+              "okx",
+              "market",
+              "ticker",
+              "BTC-USDT",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "market",
+            "requiresWrite": false,
+            "reason": "Refresh BTC price before materializing execution."
+          },
+          "ok": false,
+          "exitCode": null,
+          "stdout": "",
+          "stderr": "scenario breaches detected: correlation_to_one:correlation-bucket",
+          "skipped": true,
+          "dryRun": false,
+          "durationMs": 0
+        },
+        {
+          "intent": {
+            "intentId": "run_20260321182357429_148:protective-put:write:3",
+            "stepIndex": 3,
+            "safeToRetry": false,
+            "clientOrderRef": "tmd264b33dc670264ebe6e2c",
+            "command": "okx option place-order --instId BTC-USD-260327-67000-P --side buy --sz 1 --px 0.0100 --profile demo --json",
+            "args": [
+              "okx",
+              "option",
+              "place-order",
+              "--instId",
+              "BTC-USD-260327-67000-P",
+              "--side",
+              "buy",
+              "--sz",
+              "1",
+              "--px",
+              "0.0100",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "option",
+            "requiresWrite": true,
+            "reason": "Buy downside convexity for the primary concentration symbol."
+          },
+          "ok": false,
+          "exitCode": null,
+          "stdout": "",
+          "stderr": "scenario breaches detected: correlation_to_one:correlation-bucket",
+          "skipped": true,
+          "dryRun": false,
+          "durationMs": 0
+        }
+      ],
+      "blockedReason": "scenario breaches detected: correlation_to_one:correlation-bucket"
+    }
+  ],
+  "errors": []
+}

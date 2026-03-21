@@ -10,6 +10,15 @@ const LEDGER_PATH = join(process.cwd(), ".trademesh", "ledgers", "idempotency.js
 
 test("reconcile can resolve pending write intents and unblock repeated apply execute", async () => {
   const payloads = await buildReferencePayloads();
+  payloads.accountPositions = {
+    code: "0",
+    data: [
+      { instId: "BTC-USDT-SWAP", pos: "0.01", markPx: "70000", lever: "3", posSide: "long" },
+      { instId: "ETH-USDT-SWAP", pos: "0.2", markPx: "3500", lever: "3", posSide: "long" },
+      { instId: "SOL-USDT-SWAP", pos: "5", markPx: "140", lever: "3", posSide: "long" },
+      { instId: "XRP-USDT-SWAP", pos: "1400", markPx: "0.5", lever: "3", posSide: "long" },
+    ],
+  };
   payloads.tradeOrdersHistory = {
     code: "0",
     data: [{ ordId: "remote_order_001", side: "sell", sz: "0.05", cTime: String(Date.now()) }],

@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "updatedAt": "2026-03-21T18:25:14.267Z",
+  "entries": {
+    "5437b3b870a6f87652651022230c8bfc6c4242a1f2658742a2597e7387a8fd23": {
+      "fingerprint": "5437b3b870a6f87652651022230c8bfc6c4242a1f2658742a2597e7387a8fd23",
+      "intentId": "run_20260321182514091_391:protective-put:write:3",
+      "runId": "run_20260321182514091_391",
+      "proposal": "protective-put",
+      "plane": "demo",
+      "module": "option",
+      "requiresWrite": true,
+      "clientOrderRef": "tmea6d01f59fbd2fb235e802",
+      "command": "okx option place-order --instId BTC-USD-260327-67000-P --side buy --sz 1 --px 0.0100 --profile demo --json",
+      "status": "executed",
+      "createdAt": "2026-03-21T18:25:14.263Z",
+      "updatedAt": "2026-03-21T18:25:14.267Z"
+    }
+  }
+}

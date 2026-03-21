@@ -1,0 +1,1536 @@
+{
+  "kind": "trademesh-artifacts",
+  "version": 2,
+  "runId": "run_20260321182357429_148",
+  "savedAt": "2026-03-21T18:23:57.586Z",
+  "artifacts": {
+    "goal.intake": {
+      "key": "goal.intake",
+      "version": 2,
+      "producer": "portfolio-xray",
+      "createdAt": "2026-03-21T18:23:57.488Z",
+      "data": {
+        "rawGoal": "hedge my BTC drawdown with demo execute",
+        "normalizedGoal": "hedge my btc drawdown with demo execute",
+        "symbols": [
+          "BTC"
+        ],
+        "targetDrawdownPct": 4,
+        "hedgeIntent": "protect_downside",
+        "timeHorizon": "swing",
+        "planePreference": "demo",
+        "executePreference": "plan_only",
+        "sources": {
+          "symbols": "goal_parse",
+          "targetDrawdownPct": "default",
+          "hedgeIntent": "goal_parse",
+          "timeHorizon": "default"
+        },
+        "warnings": [
+          "Drawdown target defaulted to 4%."
+        ]
+      },
+      "ruleRefs": [],
+      "doctrineRefs": []
+    },
+    "portfolio.snapshot": {
+      "key": "portfolio.snapshot",
+      "version": 2,
+      "producer": "portfolio-xray",
+      "createdAt": "2026-03-21T18:23:57.488Z",
+      "data": {
+        "source": "okx-cli",
+        "symbols": [
+          "BTC"
+        ],
+        "drawdownTarget": "4%",
+        "balance": {
+          "code": "0",
+          "data": [
+            {
+              "details": [
+                {
+                  "ccy": "USDT",
+                  "availBal": "20000",
+                  "usdEq": "20000"
+                }
+              ]
+            }
+          ]
+        },
+        "positions": {
+          "code": "0",
+          "data": [
+            {
+              "instId": "BTC-USDT-SWAP",
+              "pos": "0.01",
+              "markPx": "70000",
+              "lever": "3",
+              "posSide": "long"
+            },
+            {
+              "instId": "ETH-USDT-SWAP",
+              "pos": "0.2",
+              "markPx": "3500",
+              "lever": "3",
+              "posSide": "long"
+            },
+            {
+              "instId": "SOL-USDT-SWAP",
+              "pos": "5",
+              "markPx": "140",
+              "lever": "3",
+              "posSide": "long"
+            }
+          ]
+        },
+        "feeRates": {
+          "code": "0",
+          "data": [
+            {
+              "maker": "-0.0002",
+              "taker": "0.0005",
+              "makerFeeRate": "-0.0002",
+              "takerFeeRate": "0.0005"
+            }
+          ]
+        },
+        "bills": {
+          "code": "0",
+          "data": [
+            {
+              "fee": "-1.20",
+              "ccy": "USDT"
+            }
+          ]
+        },
+        "commands": [
+          "okx account balance --profile demo --json",
+          "okx account positions --profile demo --json",
+          "okx account fee-rates --profile demo --json",
+          "okx account bills --profile demo --json"
+        ],
+        "errors": [],
+        "accountEquity": 20000,
+        "availableUsd": 20000
+      },
+      "ruleRefs": [],
+      "doctrineRefs": []
+    },
+    "portfolio.risk-profile": {
+      "key": "portfolio.risk-profile",
+      "version": 2,
+      "producer": "portfolio-xray",
+      "createdAt": "2026-03-21T18:23:57.488Z",
+      "data": {
+        "directionalExposure": {
+          "longUsd": 2100,
+          "shortUsd": 0,
+          "netUsd": 2100,
+          "dominantSide": "long"
+        },
+        "concentration": {
+          "grossUsd": 2100,
+          "topSymbol": "BTC",
+          "topSharePct": 33.33333333333333,
+          "top3": [
+            {
+              "symbol": "BTC",
+              "usd": 700,
+              "sharePct": 33.33333333333333
+            },
+            {
+              "symbol": "ETH",
+              "usd": 700,
+              "sharePct": 33.33333333333333
+            },
+            {
+              "symbol": "SOL",
+              "usd": 700,
+              "sharePct": 33.33333333333333
+            }
+          ]
+        },
+        "leverageHotspots": [
+          {
+            "instId": "BTC-USDT-SWAP",
+            "symbol": "BTC",
+            "leverage": 3,
+            "notionalUsd": 700
+          },
+          {
+            "instId": "ETH-USDT-SWAP",
+            "symbol": "ETH",
+            "leverage": 3,
+            "notionalUsd": 700
+          },
+          {
+            "instId": "SOL-USDT-SWAP",
+            "symbol": "SOL",
+            "leverage": 3,
+            "notionalUsd": 700
+          }
+        ],
+        "feeDrag": {
+          "makerRateBps": 2,
+          "takerRateBps": 5,
+          "recentFeePaidUsd": 1.2,
+          "recentFeeRows": 1
+        },
+        "correlationBuckets": [
+          {
+            "bucketId": "correlated-btc",
+            "symbols": [
+              "BTC"
+            ],
+            "grossUsd": 700,
+            "sharePct": 33.33333333333333
+          },
+          {
+            "bucketId": "correlated-eth",
+            "symbols": [
+              "ETH"
+            ],
+            "grossUsd": 700,
+            "sharePct": 33.33333333333333
+          },
+          {
+            "bucketId": "correlated-sol",
+            "symbols": [
+              "SOL"
+            ],
+            "grossUsd": 700,
+            "sharePct": 33.33333333333333
+          }
+        ]
+      },
+      "ruleRefs": [],
+      "doctrineRefs": []
+    },
+    "market.snapshot": {
+      "key": "market.snapshot",
+      "version": 2,
+      "producer": "market-scan",
+      "createdAt": "2026-03-21T18:23:57.544Z",
+      "data": {
+        "source": "okx-cli",
+        "tickers": {
+          "BTC-USDT": {
+            "code": "0",
+            "data": [
+              {
+                "instId": "BTC-USDT",
+                "last": "70000",
+                "open24h": "69000",
+                "markPx": "69980"
+              }
+            ]
+          }
+        },
+        "candles": {
+          "BTC-USDT": {
+            "code": "0",
+            "data": [
+              [
+                "1774117437415",
+                "69000",
+                "70100",
+                "68800",
+                "70000",
+                "100"
+              ],
+              [
+                "1774113837415",
+                "68800",
+                "69200",
+                "68500",
+                "69000",
+                "120"
+              ]
+            ]
+          }
+        },
+        "fundingRates": {
+          "BTC-USDT-SWAP": {
+            "code": "0",
+            "data": [
+              {
+                "instId": "BTC-USDT-SWAP",
+                "fundingRate": "0.0001"
+              }
+            ]
+          }
+        },
+        "orderbooks": {
+          "BTC-USDT": {
+            "code": "0",
+            "data": [
+              {
+                "bids": [
+                  [
+                    "69990",
+                    "5"
+                  ]
+                ],
+                "asks": [
+                  [
+                    "70010",
+                    "4"
+                  ]
+                ]
+              }
+            ]
+          }
+        },
+        "commands": [
+          "okx market ticker BTC-USDT --profile demo --json",
+          "okx market candles BTC-USDT --bar 1H --limit 120 --profile demo --json",
+          "okx market funding-rate BTC-USDT-SWAP --profile demo --json",
+          "okx market orderbook BTC-USDT --sz 20 --profile demo --json"
+        ],
+        "errors": []
+      },
+      "ruleRefs": [
+        "ma-trend-detection",
+        "breakout-detection",
+        "atr-volatility-regime",
+        "trend-score-calc"
+      ],
+      "doctrineRefs": [
+        "turtle-trend"
+      ]
+    },
+    "market.regime": {
+      "key": "market.regime",
+      "version": 2,
+      "producer": "market-scan",
+      "createdAt": "2026-03-21T18:23:57.544Z",
+      "data": {
+        "symbols": [
+          "BTC"
+        ],
+        "directionalRegime": "sideways",
+        "volState": "normal",
+        "tailRiskState": "normal",
+        "fundingState": "neutral",
+        "conviction": 35,
+        "trendScores": [],
+        "marketVolatility": 0.014285714285714285,
+        "ruleRefs": [
+          "ma-trend-detection",
+          "breakout-detection",
+          "atr-volatility-regime",
+          "trend-score-calc"
+        ],
+        "doctrineRefs": [
+          "turtle-trend"
+        ]
+      },
+      "ruleRefs": [
+        "ma-trend-detection",
+        "breakout-detection",
+        "atr-volatility-regime",
+        "trend-score-calc"
+      ],
+      "doctrineRefs": [
+        "turtle-trend"
+      ]
+    },
+    "trade.thesis": {
+      "key": "trade.thesis",
+      "version": 2,
+      "producer": "trade-thesis",
+      "createdAt": "2026-03-21T18:23:57.547Z",
+      "data": {
+        "directionalRegime": "sideways",
+        "volState": "normal",
+        "tailRiskState": "normal",
+        "hedgeBias": "perp",
+        "conviction": 51,
+        "riskBudget": {
+          "maxSingleOrderUsd": 1600,
+          "maxPremiumSpendUsd": 300,
+          "maxMarginUseUsd": 3600,
+          "maxCorrelationBucketPct": 45,
+          "maxTotalExposureUsd": 36000
+        },
+        "disciplineState": "normal",
+        "preferredStrategies": [
+          "perp-short",
+          "protective-put",
+          "collar",
+          "de-risk"
+        ],
+        "decisionNotes": [
+          "Directional regime sideways with conviction 51.",
+          "Volatility state normal, tail risk normal, funding neutral.",
+          "Discipline state normal from leverage/fee drag profile.",
+          "Preferred hedge bias perp."
+        ],
+        "ruleRefs": [
+          "perp-short-calc",
+          "protective-put-calc",
+          "collar-calc",
+          "funding-rate-priority",
+          "iv-percentile-priority",
+          "max-single-order",
+          "max-total-exposure",
+          "max-symbol-concentration",
+          "volatility-adjustment",
+          "leverage-tightening",
+          "ma-trend-detection",
+          "breakout-detection",
+          "atr-volatility-regime",
+          "trend-score-calc"
+        ],
+        "doctrineRefs": [
+          "black-swan-risk",
+          "discipline",
+          "turtle-trend",
+          "vol-hedging"
+        ]
+      },
+      "ruleRefs": [
+        "perp-short-calc",
+        "protective-put-calc",
+        "collar-calc",
+        "funding-rate-priority",
+        "iv-percentile-priority",
+        "max-single-order",
+        "max-total-exposure",
+        "max-symbol-concentration",
+        "volatility-adjustment",
+        "leverage-tightening",
+        "ma-trend-detection",
+        "breakout-detection",
+        "atr-volatility-regime",
+        "trend-score-calc"
+      ],
+      "doctrineRefs": [
+        "black-swan-risk",
+        "discipline",
+        "turtle-trend",
+        "vol-hedging"
+      ]
+    },
+    "planning.proposals": {
+      "key": "planning.proposals",
+      "version": 2,
+      "producer": "policy-gate",
+      "createdAt": "2026-03-21T18:23:57.558Z",
+      "data": [
+        {
+          "name": "protective-put",
+          "strategyId": "protective-put",
+          "reason": "Buy convex downside protection because vol=normal and tailRisk=normal.",
+          "estimatedCost": "225 USD premium budget",
+          "estimatedProtection": "Downside convexity on BTC",
+          "scoreBreakdown": {
+            "protection": 92,
+            "cost": 54,
+            "executionRisk": 76,
+            "policyFit": 70,
+            "dataConfidence": 90,
+            "total": 78
+          },
+          "riskTags": [
+            "strategy:protective-put",
+            "strategy-source:trade-thesis",
+            "regime:sideways",
+            "vol:normal",
+            "instrument:option"
+          ],
+          "evidence": {
+            "artifactRefs": [
+              {
+                "key": "goal.intake",
+                "producer": "portfolio-xray",
+                "version": 2
+              },
+              {
+                "key": "trade.thesis",
+                "producer": "trade-thesis",
+                "version": 2
+              },
+              {
+                "key": "portfolio.risk-profile",
+                "producer": "portfolio-xray",
+                "version": 2
+              },
+              {
+                "key": "market.snapshot",
+                "producer": "market-scan",
+                "version": 2
+              }
+            ],
+            "ruleRefs": [
+              "perp-short-calc",
+              "protective-put-calc",
+              "collar-calc",
+              "funding-rate-priority",
+              "iv-percentile-priority",
+              "max-single-order",
+              "max-total-exposure",
+              "max-symbol-concentration",
+              "volatility-adjustment",
+              "leverage-tightening",
+              "ma-trend-detection",
+              "breakout-detection",
+              "atr-volatility-regime",
+              "trend-score-calc"
+            ],
+            "doctrineRefs": [
+              "black-swan-risk",
+              "discipline",
+              "turtle-trend",
+              "vol-hedging"
+            ]
+          },
+          "riskBudgetUse": {
+            "premiumSpendUsd": 225,
+            "correlationBucketPct": 33.33333333333333
+          },
+          "decisionNotes": [
+            "Directional regime sideways with conviction 51.",
+            "Volatility state normal, tail risk normal, funding neutral.",
+            "Discipline state normal from leverage/fee drag profile.",
+            "Preferred hedge bias perp.",
+            "Highest convexity and cleanest downside insurance."
+          ],
+          "requiredModules": [
+            "account",
+            "market",
+            "option"
+          ],
+          "orderPlan": [
+            {
+              "kind": "option-place-order",
+              "purpose": "Buy downside convexity for the primary concentration symbol.",
+              "symbol": "BTC",
+              "targetPremiumUsd": 225,
+              "referencePx": 70000,
+              "params": {
+                "instId": "BTC-USD-260327-67000-P",
+                "side": "buy",
+                "sz": "1",
+                "px": "0.0100"
+              },
+              "strategy": "protective-put",
+              "leg": "protective-put",
+              "riskTags": [
+                "strategy:protective-put",
+                "strategy-source:trade-thesis",
+                "regime:sideways",
+                "vol:normal",
+                "instrument:option"
+              ]
+            }
+          ],
+          "recommended": true,
+          "scenarioMatrix": {
+            "spot_down_5pct": {
+              "scenario": "spot_down_5pct",
+              "estimatedPnlUsd": 45,
+              "estimatedDrawdownPct": 2.25,
+              "estimatedMarginUseUsd": 0,
+              "breachFlags": []
+            },
+            "spot_down_10pct": {
+              "scenario": "spot_down_10pct",
+              "estimatedPnlUsd": 123.75000000000001,
+              "estimatedDrawdownPct": 5.3,
+              "estimatedMarginUseUsd": 0,
+              "breachFlags": []
+            },
+            "volatility_x2": {
+              "scenario": "volatility_x2",
+              "estimatedPnlUsd": 78.75,
+              "estimatedDrawdownPct": 3.2,
+              "estimatedMarginUseUsd": 0,
+              "breachFlags": []
+            },
+            "correlation_to_one": {
+              "scenario": "correlation_to_one",
+              "estimatedPnlUsd": 21,
+              "estimatedDrawdownPct": 6.4,
+              "estimatedMarginUseUsd": 0,
+              "breachFlags": [
+                "correlation-bucket"
+              ]
+            }
+          },
+          "actionable": false,
+          "executionReadiness": "policy_blocked",
+          "capabilityGaps": []
+        },
+        {
+          "name": "collar",
+          "strategyId": "collar",
+          "reason": "Use a collar when premium efficiency matters but downside protection is still required.",
+          "estimatedCost": "90 USD net premium",
+          "estimatedProtection": "Protected downside with capped upside on BTC",
+          "scoreBreakdown": {
+            "protection": 84,
+            "cost": 76,
+            "executionRisk": 68,
+            "policyFit": 70,
+            "dataConfidence": 90,
+            "total": 77
+          },
+          "riskTags": [
+            "strategy:collar",
+            "strategy-source:trade-thesis",
+            "regime:sideways",
+            "vol:normal",
+            "instrument:option",
+            "premium-financing"
+          ],
+          "evidence": {
+            "artifactRefs": [
+              {
+                "key": "goal.intake",
+                "producer": "portfolio-xray",
+                "version": 2
+              },
+              {
+                "key": "trade.thesis",
+                "producer": "trade-thesis",
+                "version": 2
+              },
+              {
+                "key": "portfolio.risk-profile",
+                "producer": "portfolio-xray",
+                "version": 2
+              },
+              {
+                "key": "market.snapshot",
+                "producer": "market-scan",
+                "version": 2
+              }
+            ],
+            "ruleRefs": [
+              "perp-short-calc",
+              "protective-put-calc",
+              "collar-calc",
+              "funding-rate-priority",
+              "iv-percentile-priority",
+              "max-single-order",
+              "max-total-exposure",
+              "max-symbol-concentration",
+              "volatility-adjustment",
+              "leverage-tightening",
+              "ma-trend-detection",
+              "breakout-detection",
+              "atr-volatility-regime",
+              "trend-score-calc"
+            ],
+            "doctrineRefs": [
+              "black-swan-risk",
+              "discipline",
+              "turtle-trend",
+              "vol-hedging"
+            ]
+          },
+          "riskBudgetUse": {
+            "premiumSpendUsd": 90,
+            "correlationBucketPct": 33.33333333333333
+          },
+          "decisionNotes": [
+            "Directional regime sideways with conviction 51.",
+            "Volatility state normal, tail risk normal, funding neutral.",
+            "Discipline state normal from leverage/fee drag profile.",
+            "Preferred hedge bias perp.",
+            "Better premium efficiency than a naked put, with capped upside."
+          ],
+          "requiredModules": [
+            "account",
+            "market",
+            "option"
+          ],
+          "orderPlan": [
+            {
+              "kind": "option-place-order",
+              "purpose": "Buy protective put leg.",
+              "symbol": "BTC",
+              "targetPremiumUsd": 225,
+              "referencePx": 70000,
+              "params": {
+                "instId": "BTC-USD-260327-67000-P",
+                "side": "buy",
+                "sz": "1",
+                "px": "0.0100"
+              },
+              "strategy": "collar",
+              "leg": "protective-put",
+              "riskTags": [
+                "strategy:collar",
+                "strategy-source:trade-thesis",
+                "regime:sideways",
+                "vol:normal",
+                "instrument:option"
+              ]
+            },
+            {
+              "kind": "option-place-order",
+              "purpose": "Sell covered-call style financing leg.",
+              "symbol": "BTC",
+              "targetPremiumUsd": 135,
+              "referencePx": 70000,
+              "params": {
+                "instId": "BTC-USD-260327-74000-C",
+                "side": "sell",
+                "sz": "1",
+                "px": "0.0100"
+              },
+              "strategy": "collar",
+              "leg": "covered-call",
+              "riskTags": [
+                "strategy:collar",
+                "strategy-source:trade-thesis",
+                "regime:sideways",
+                "vol:normal",
+                "instrument:option",
+                "premium-financing"
+              ]
+            }
+          ],
+          "recommended": false,
+          "rejectionReason": "option premium spend 360.00 exceeds premium budget 300.00 USD",
+          "scenarioMatrix": {
+            "spot_down_5pct": {
+              "scenario": "spot_down_5pct",
+              "estimatedPnlUsd": 18,
+              "estimatedDrawdownPct": 2.875,
+              "estimatedMarginUseUsd": 0,
+              "breachFlags": []
+            },
+            "spot_down_10pct": {
+              "scenario": "spot_down_10pct",
+              "estimatedPnlUsd": 49.50000000000001,
+              "estimatedDrawdownPct": 6.3,
+              "estimatedMarginUseUsd": 0,
+              "breachFlags": []
+            },
+            "volatility_x2": {
+              "scenario": "volatility_x2",
+              "estimatedPnlUsd": 31.499999999999996,
+              "estimatedDrawdownPct": 4.1,
+              "estimatedMarginUseUsd": 0,
+              "breachFlags": []
+            },
+            "correlation_to_one": {
+              "scenario": "correlation_to_one",
+              "estimatedPnlUsd": 21,
+              "estimatedDrawdownPct": 7.8,
+              "estimatedMarginUseUsd": 0,
+              "breachFlags": [
+                "correlation-bucket"
+              ]
+            }
+          },
+          "actionable": false,
+          "executionReadiness": "policy_blocked",
+          "capabilityGaps": []
+        },
+        {
+          "name": "de-risk",
+          "strategyId": "de-risk",
+          "reason": "Reduce leverage because discipline=normal and tailRisk=normal.",
+          "estimatedCost": "Opportunity cost from smaller gross exposure",
+          "estimatedProtection": "Reduce 700 USD gross exposure",
+          "scoreBreakdown": {
+            "protection": 80,
+            "cost": 80,
+            "executionRisk": 72,
+            "policyFit": 70,
+            "dataConfidence": 90,
+            "total": 77
+          },
+          "riskTags": [
+            "strategy:de-risk",
+            "strategy-source:trade-thesis",
+            "regime:sideways",
+            "vol:normal",
+            "instrument:swap",
+            "reduce-only"
+          ],
+          "evidence": {
+            "artifactRefs": [
+              {
+                "key": "goal.intake",
+                "producer": "portfolio-xray",
+                "version": 2
+              },
+              {
+                "key": "trade.thesis",
+                "producer": "trade-thesis",
+                "version": 2
+              },
+              {
+                "key": "portfolio.risk-profile",
+                "producer": "portfolio-xray",
+                "version": 2
+              },
+              {
+                "key": "market.snapshot",
+                "producer": "market-scan",
+                "version": 2
+              }
+            ],
+            "ruleRefs": [
+              "perp-short-calc",
+              "protective-put-calc",
+              "collar-calc",
+              "funding-rate-priority",
+              "iv-percentile-priority",
+              "max-single-order",
+              "max-total-exposure",
+              "max-symbol-concentration",
+              "volatility-adjustment",
+              "leverage-tightening",
+              "ma-trend-detection",
+              "breakout-detection",
+              "atr-volatility-regime",
+              "trend-score-calc"
+            ],
+            "doctrineRefs": [
+              "black-swan-risk",
+              "discipline",
+              "turtle-trend",
+              "vol-hedging"
+            ]
+          },
+          "riskBudgetUse": {
+            "orderNotionalUsd": 700,
+            "marginUseUsd": 0,
+            "correlationBucketPct": 33.33333333333333
+          },
+          "decisionNotes": [
+            "Directional regime sideways with conviction 51.",
+            "Volatility state normal, tail risk normal, funding neutral.",
+            "Discipline state normal from leverage/fee drag profile.",
+            "Preferred hedge bias perp.",
+            "Best when preserving capital matters more than maintaining exposure."
+          ],
+          "requiredModules": [
+            "account",
+            "market",
+            "swap"
+          ],
+          "orderPlan": [
+            {
+              "kind": "swap-place-order",
+              "purpose": "Reduce gross exposure because thesis recommends de-risking.",
+              "symbol": "BTC",
+              "targetNotionalUsd": 700,
+              "referencePx": 70000,
+              "params": {
+                "instId": "BTC-USDT-SWAP",
+                "tdMode": "cross",
+                "side": "sell",
+                "ordType": "limit",
+                "sz": "0.010",
+                "px": "69930.0",
+                "reduceOnly": true,
+                "tag": "mesh-derisk"
+              },
+              "riskTags": [
+                "strategy:de-risk",
+                "strategy-source:trade-thesis",
+                "regime:sideways",
+                "vol:normal",
+                "reduce-only"
+              ]
+            }
+          ],
+          "recommended": false,
+          "rejectionReason": "BTC-USDT-SWAP order notional 700.00 exceeds single-order limit 400.00 USD",
+          "scenarioMatrix": {
+            "spot_down_5pct": {
+              "scenario": "spot_down_5pct",
+              "estimatedPnlUsd": 0,
+              "estimatedDrawdownPct": 3.25,
+              "estimatedMarginUseUsd": 0,
+              "breachFlags": []
+            },
+            "spot_down_10pct": {
+              "scenario": "spot_down_10pct",
+              "estimatedPnlUsd": 0,
+              "estimatedDrawdownPct": 6.9,
+              "estimatedMarginUseUsd": 0,
+              "breachFlags": []
+            },
+            "volatility_x2": {
+              "scenario": "volatility_x2",
+              "estimatedPnlUsd": -10.5,
+              "estimatedDrawdownPct": 6.8,
+              "estimatedMarginUseUsd": 0,
+              "breachFlags": []
+            },
+            "correlation_to_one": {
+              "scenario": "correlation_to_one",
+              "estimatedPnlUsd": 21,
+              "estimatedDrawdownPct": 4.5,
+              "estimatedMarginUseUsd": 0,
+              "breachFlags": [
+                "correlation-bucket"
+              ]
+            }
+          },
+          "actionable": false,
+          "executionReadiness": "policy_blocked",
+          "capabilityGaps": []
+        },
+        {
+          "name": "perp-short",
+          "strategyId": "perp-short",
+          "reason": "Use perp hedge because thesis bias=perp and funding=neutral.",
+          "estimatedCost": "carry cost moderate",
+          "estimatedProtection": "Hedge up to 1600 USD of net exposure",
+          "scoreBreakdown": {
+            "protection": 74,
+            "cost": 68,
+            "executionRisk": 64,
+            "policyFit": 92,
+            "dataConfidence": 90,
+            "total": 75
+          },
+          "riskTags": [
+            "strategy:perp-short",
+            "strategy-source:trade-thesis",
+            "regime:sideways",
+            "vol:normal",
+            "instrument:swap"
+          ],
+          "evidence": {
+            "artifactRefs": [
+              {
+                "key": "goal.intake",
+                "producer": "portfolio-xray",
+                "version": 2
+              },
+              {
+                "key": "trade.thesis",
+                "producer": "trade-thesis",
+                "version": 2
+              },
+              {
+                "key": "portfolio.risk-profile",
+                "producer": "portfolio-xray",
+                "version": 2
+              },
+              {
+                "key": "market.snapshot",
+                "producer": "market-scan",
+                "version": 2
+              }
+            ],
+            "ruleRefs": [
+              "perp-short-calc",
+              "protective-put-calc",
+              "collar-calc",
+              "funding-rate-priority",
+              "iv-percentile-priority",
+              "max-single-order",
+              "max-total-exposure",
+              "max-symbol-concentration",
+              "volatility-adjustment",
+              "leverage-tightening",
+              "ma-trend-detection",
+              "breakout-detection",
+              "atr-volatility-regime",
+              "trend-score-calc"
+            ],
+            "doctrineRefs": [
+              "black-swan-risk",
+              "discipline",
+              "turtle-trend",
+              "vol-hedging"
+            ]
+          },
+          "riskBudgetUse": {
+            "orderNotionalUsd": 1600,
+            "marginUseUsd": 192,
+            "correlationBucketPct": 33.33333333333333
+          },
+          "decisionNotes": [
+            "Directional regime sideways with conviction 51.",
+            "Volatility state normal, tail risk normal, funding neutral.",
+            "Discipline state normal from leverage/fee drag profile.",
+            "Preferred hedge bias perp.",
+            "Best when carry is acceptable and fast directional coverage matters."
+          ],
+          "requiredModules": [
+            "account",
+            "market",
+            "swap"
+          ],
+          "orderPlan": [
+            {
+              "kind": "swap-place-order",
+              "purpose": "Offset net directional exposure with a perp hedge.",
+              "symbol": "BTC",
+              "targetNotionalUsd": 1600,
+              "referencePx": 70000,
+              "params": {
+                "instId": "BTC-USDT-SWAP",
+                "tdMode": "cross",
+                "side": "sell",
+                "ordType": "limit",
+                "sz": "0.022",
+                "px": "69930.0",
+                "reduceOnly": false,
+                "tag": "mesh-perp"
+              },
+              "riskTags": [
+                "strategy:perp-short",
+                "strategy-source:trade-thesis",
+                "regime:sideways",
+                "vol:normal",
+                "funding:neutral"
+              ]
+            }
+          ],
+          "recommended": false,
+          "rejectionReason": "BTC-USDT-SWAP order notional 1600.00 exceeds single-order limit 400.00 USD",
+          "scenarioMatrix": {
+            "spot_down_5pct": {
+              "scenario": "spot_down_5pct",
+              "estimatedPnlUsd": 56.00000000000001,
+              "estimatedDrawdownPct": 3.625,
+              "estimatedMarginUseUsd": 192,
+              "breachFlags": []
+            },
+            "spot_down_10pct": {
+              "scenario": "spot_down_10pct",
+              "estimatedPnlUsd": 112.00000000000001,
+              "estimatedDrawdownPct": 7.5,
+              "estimatedMarginUseUsd": 211.20000000000002,
+              "breachFlags": []
+            },
+            "volatility_x2": {
+              "scenario": "volatility_x2",
+              "estimatedPnlUsd": -24,
+              "estimatedDrawdownPct": 6.8,
+              "estimatedMarginUseUsd": 249.60000000000002,
+              "breachFlags": []
+            },
+            "correlation_to_one": {
+              "scenario": "correlation_to_one",
+              "estimatedPnlUsd": 16,
+              "estimatedDrawdownPct": 7.8,
+              "estimatedMarginUseUsd": 220.79999999999998,
+              "breachFlags": [
+                "correlation-bucket"
+              ]
+            }
+          },
+          "actionable": false,
+          "executionReadiness": "policy_blocked",
+          "capabilityGaps": []
+        }
+      ],
+      "ruleRefs": [
+        "max-single-order",
+        "max-total-exposure",
+        "max-symbol-concentration"
+      ],
+      "doctrineRefs": [
+        "black-swan-risk"
+      ]
+    },
+    "planning.scenario-matrix": {
+      "key": "planning.scenario-matrix",
+      "version": 2,
+      "producer": "scenario-sim",
+      "createdAt": "2026-03-21T18:23:57.552Z",
+      "data": {
+        "perp-short": {
+          "spot_down_5pct": {
+            "scenario": "spot_down_5pct",
+            "estimatedPnlUsd": 56.00000000000001,
+            "estimatedDrawdownPct": 3.625,
+            "estimatedMarginUseUsd": 192,
+            "breachFlags": []
+          },
+          "spot_down_10pct": {
+            "scenario": "spot_down_10pct",
+            "estimatedPnlUsd": 112.00000000000001,
+            "estimatedDrawdownPct": 7.5,
+            "estimatedMarginUseUsd": 211.20000000000002,
+            "breachFlags": []
+          },
+          "volatility_x2": {
+            "scenario": "volatility_x2",
+            "estimatedPnlUsd": -24,
+            "estimatedDrawdownPct": 6.8,
+            "estimatedMarginUseUsd": 249.60000000000002,
+            "breachFlags": []
+          },
+          "correlation_to_one": {
+            "scenario": "correlation_to_one",
+            "estimatedPnlUsd": 16,
+            "estimatedDrawdownPct": 7.8,
+            "estimatedMarginUseUsd": 220.79999999999998,
+            "breachFlags": [
+              "correlation-bucket"
+            ]
+          }
+        },
+        "collar": {
+          "spot_down_5pct": {
+            "scenario": "spot_down_5pct",
+            "estimatedPnlUsd": 18,
+            "estimatedDrawdownPct": 2.875,
+            "estimatedMarginUseUsd": 0,
+            "breachFlags": []
+          },
+          "spot_down_10pct": {
+            "scenario": "spot_down_10pct",
+            "estimatedPnlUsd": 49.50000000000001,
+            "estimatedDrawdownPct": 6.3,
+            "estimatedMarginUseUsd": 0,
+            "breachFlags": []
+          },
+          "volatility_x2": {
+            "scenario": "volatility_x2",
+            "estimatedPnlUsd": 31.499999999999996,
+            "estimatedDrawdownPct": 4.1,
+            "estimatedMarginUseUsd": 0,
+            "breachFlags": []
+          },
+          "correlation_to_one": {
+            "scenario": "correlation_to_one",
+            "estimatedPnlUsd": 21,
+            "estimatedDrawdownPct": 7.8,
+            "estimatedMarginUseUsd": 0,
+            "breachFlags": [
+              "correlation-bucket"
+            ]
+          }
+        },
+        "de-risk": {
+          "spot_down_5pct": {
+            "scenario": "spot_down_5pct",
+            "estimatedPnlUsd": 0,
+            "estimatedDrawdownPct": 3.25,
+            "estimatedMarginUseUsd": 0,
+            "breachFlags": []
+          },
+          "spot_down_10pct": {
+            "scenario": "spot_down_10pct",
+            "estimatedPnlUsd": 0,
+            "estimatedDrawdownPct": 6.9,
+            "estimatedMarginUseUsd": 0,
+            "breachFlags": []
+          },
+          "volatility_x2": {
+            "scenario": "volatility_x2",
+            "estimatedPnlUsd": -10.5,
+            "estimatedDrawdownPct": 6.8,
+            "estimatedMarginUseUsd": 0,
+            "breachFlags": []
+          },
+          "correlation_to_one": {
+            "scenario": "correlation_to_one",
+            "estimatedPnlUsd": 21,
+            "estimatedDrawdownPct": 4.5,
+            "estimatedMarginUseUsd": 0,
+            "breachFlags": [
+              "correlation-bucket"
+            ]
+          }
+        },
+        "protective-put": {
+          "spot_down_5pct": {
+            "scenario": "spot_down_5pct",
+            "estimatedPnlUsd": 45,
+            "estimatedDrawdownPct": 2.25,
+            "estimatedMarginUseUsd": 0,
+            "breachFlags": []
+          },
+          "spot_down_10pct": {
+            "scenario": "spot_down_10pct",
+            "estimatedPnlUsd": 123.75000000000001,
+            "estimatedDrawdownPct": 5.3,
+            "estimatedMarginUseUsd": 0,
+            "breachFlags": []
+          },
+          "volatility_x2": {
+            "scenario": "volatility_x2",
+            "estimatedPnlUsd": 78.75,
+            "estimatedDrawdownPct": 3.2,
+            "estimatedMarginUseUsd": 0,
+            "breachFlags": []
+          },
+          "correlation_to_one": {
+            "scenario": "correlation_to_one",
+            "estimatedPnlUsd": 21,
+            "estimatedDrawdownPct": 6.4,
+            "estimatedMarginUseUsd": 0,
+            "breachFlags": [
+              "correlation-bucket"
+            ]
+          }
+        }
+      },
+      "ruleRefs": [
+        "perp-short-calc",
+        "protective-put-calc",
+        "collar-calc",
+        "funding-rate-priority",
+        "iv-percentile-priority",
+        "max-single-order",
+        "max-total-exposure",
+        "max-symbol-concentration",
+        "volatility-adjustment",
+        "leverage-tightening",
+        "ma-trend-detection",
+        "breakout-detection",
+        "atr-volatility-regime",
+        "trend-score-calc"
+      ],
+      "doctrineRefs": [
+        "black-swan-risk",
+        "discipline",
+        "turtle-trend",
+        "vol-hedging"
+      ]
+    },
+    "policy.plan-decision": {
+      "key": "policy.plan-decision",
+      "version": 2,
+      "producer": "apply-runtime",
+      "createdAt": "2026-03-21T18:23:57.580Z",
+      "data": {
+        "outcome": "blocked",
+        "reasons": [
+          "scenario breaches detected: correlation_to_one:correlation-bucket"
+        ],
+        "proposal": "protective-put",
+        "plane": "demo",
+        "executeRequested": true,
+        "approvalProvided": true,
+        "evaluatedAt": "2026-03-21T18:23:57.580Z",
+        "phase": "apply",
+        "ruleRefs": [
+          "max-single-order",
+          "max-total-exposure",
+          "max-symbol-concentration"
+        ],
+        "doctrineRefs": [
+          "black-swan-risk"
+        ],
+        "breachFlags": [
+          "scenario-breach"
+        ],
+        "budgetSnapshot": {
+          "maxSingleOrderUsd": 400,
+          "maxTotalOrderUsd": 1200,
+          "maxTotalExposureUsd": 60000,
+          "maxMarginUseUsd": 3600,
+          "maxPremiumSpendUsd": 300,
+          "maxCorrelationBucketPct": 40,
+          "marketVolatility": 0.014285714285714285,
+          "volatilityAdjusted": false,
+          "leverageAdjusted": false
+        },
+        "capabilityGaps": []
+      },
+      "ruleRefs": [
+        "max-single-order",
+        "max-total-exposure",
+        "max-symbol-concentration"
+      ],
+      "doctrineRefs": [
+        "black-swan-risk"
+      ]
+    },
+    "report.operator-summary": {
+      "key": "report.operator-summary",
+      "version": 2,
+      "producer": "apply-runtime",
+      "createdAt": "2026-03-21T18:23:57.584Z",
+      "data": {
+        "runId": "run_20260321182357429_148",
+        "plane": "demo",
+        "status": "blocked",
+        "isExecutable": false,
+        "blockers": [
+          "policy_blocked",
+          "scenario breaches detected: correlation_to_one:correlation-bucket"
+        ],
+        "approval": {
+          "provided": true,
+          "ticketId": "apt_run_20260321182357429_148_protective-put_20260321182357",
+          "approvedBy": "alice",
+          "reason": "manual_approval"
+        },
+        "idempotencySummary": {
+          "checked": false,
+          "hitCount": 0,
+          "reconciliationState": "pending"
+        },
+        "reconciliationSummary": null,
+        "nextSafeAction": "node dist/bin/trademesh.js export run_20260321182357429_148",
+        "generatedAt": "2026-03-21T18:23:57.584Z"
+      },
+      "ruleRefs": [],
+      "doctrineRefs": []
+    },
+    "execution.apply-decision": {
+      "key": "execution.apply-decision",
+      "version": 2,
+      "producer": "apply-runtime",
+      "createdAt": "2026-03-21T18:23:57.580Z",
+      "data": {
+        "outcome": "blocked",
+        "reasons": [
+          "scenario breaches detected: correlation_to_one:correlation-bucket"
+        ],
+        "proposal": "protective-put",
+        "plane": "demo",
+        "executeRequested": true,
+        "approvalProvided": true,
+        "evaluatedAt": "2026-03-21T18:23:57.580Z",
+        "phase": "apply",
+        "ruleRefs": [
+          "max-single-order",
+          "max-total-exposure",
+          "max-symbol-concentration"
+        ],
+        "doctrineRefs": [
+          "black-swan-risk"
+        ],
+        "breachFlags": [
+          "scenario-breach"
+        ],
+        "budgetSnapshot": {
+          "maxSingleOrderUsd": 400,
+          "maxTotalOrderUsd": 1200,
+          "maxTotalExposureUsd": 60000,
+          "maxMarginUseUsd": 3600,
+          "maxPremiumSpendUsd": 300,
+          "maxCorrelationBucketPct": 40,
+          "marketVolatility": 0.014285714285714285,
+          "volatilityAdjusted": false,
+          "leverageAdjusted": false
+        },
+        "capabilityGaps": []
+      },
+      "ruleRefs": [
+        "max-single-order",
+        "max-total-exposure",
+        "max-symbol-concentration"
+      ],
+      "doctrineRefs": [
+        "black-swan-risk"
+      ]
+    },
+    "approval.ticket": {
+      "key": "approval.ticket",
+      "version": 2,
+      "producer": "approval-gate",
+      "createdAt": "2026-03-21T18:23:57.581Z",
+      "data": {
+        "ticketId": "apt_run_20260321182357429_148_protective-put_20260321182357",
+        "runId": "run_20260321182357429_148",
+        "proposal": "protective-put",
+        "plane": "demo",
+        "approvedBy": "alice",
+        "reason": "manual_approval",
+        "approvedAt": "2026-03-21T18:23:57.581Z",
+        "policyOutcome": "blocked",
+        "evidence": [
+          "policyOutcome=blocked",
+          "policyReasons=scenario breaches detected: correlation_to_one:correlation-bucket",
+          "symbols=BTC",
+          "intent=protect_downside",
+          "horizon=swing"
+        ]
+      },
+      "ruleRefs": [
+        "max-single-order",
+        "max-total-exposure",
+        "max-symbol-concentration"
+      ],
+      "doctrineRefs": [
+        "black-swan-risk"
+      ]
+    },
+    "execution.intent-bundle": {
+      "key": "execution.intent-bundle",
+      "version": 2,
+      "producer": "official-executor",
+      "createdAt": "2026-03-21T18:23:57.583Z",
+      "data": {
+        "proposal": "protective-put",
+        "orderPlan": [
+          {
+            "kind": "option-place-order",
+            "purpose": "Buy downside convexity for the primary concentration symbol.",
+            "symbol": "BTC",
+            "targetPremiumUsd": 225,
+            "referencePx": 70000,
+            "params": {
+              "instId": "BTC-USD-260327-67000-P",
+              "side": "buy",
+              "sz": "1",
+              "px": "0.0100"
+            },
+            "strategy": "protective-put",
+            "leg": "protective-put",
+            "riskTags": [
+              "strategy:protective-put",
+              "strategy-source:trade-thesis",
+              "regime:sideways",
+              "vol:normal",
+              "instrument:option"
+            ]
+          }
+        ],
+        "intents": [
+          {
+            "intentId": "run_20260321182357429_148:protective-put:read-balance",
+            "stepIndex": 0,
+            "safeToRetry": true,
+            "command": "okx account balance --profile demo --json",
+            "args": [
+              "okx",
+              "account",
+              "balance",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "account",
+            "requiresWrite": false,
+            "reason": "Refresh account balance before materializing execution."
+          },
+          {
+            "intentId": "run_20260321182357429_148:protective-put:read-positions",
+            "stepIndex": 1,
+            "safeToRetry": true,
+            "command": "okx account positions --profile demo --json",
+            "args": [
+              "okx",
+              "account",
+              "positions",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "account",
+            "requiresWrite": false,
+            "reason": "Refresh account positions before materializing execution."
+          },
+          {
+            "intentId": "run_20260321182357429_148:protective-put:read-ticker:btc",
+            "stepIndex": 2,
+            "safeToRetry": true,
+            "command": "okx market ticker BTC-USDT --profile demo --json",
+            "args": [
+              "okx",
+              "market",
+              "ticker",
+              "BTC-USDT",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "market",
+            "requiresWrite": false,
+            "reason": "Refresh BTC price before materializing execution."
+          },
+          {
+            "intentId": "run_20260321182357429_148:protective-put:write:3",
+            "stepIndex": 3,
+            "safeToRetry": false,
+            "clientOrderRef": "tmd264b33dc670264ebe6e2c",
+            "command": "okx option place-order --instId BTC-USD-260327-67000-P --side buy --sz 1 --px 0.0100 --profile demo --json",
+            "args": [
+              "okx",
+              "option",
+              "place-order",
+              "--instId",
+              "BTC-USD-260327-67000-P",
+              "--side",
+              "buy",
+              "--sz",
+              "1",
+              "--px",
+              "0.0100",
+              "--profile",
+              "demo",
+              "--json"
+            ],
+            "module": "option",
+            "requiresWrite": true,
+            "reason": "Buy downside convexity for the primary concentration symbol."
+          }
+        ],
+        "commandPreview": [
+          {
+            "intentId": "run_20260321182357429_148:protective-put:read-balance",
+            "stepIndex": 0,
+            "module": "account",
+            "requiresWrite": false,
+            "safeToRetry": true,
+            "reason": "Refresh account balance before materializing execution.",
+            "command": "okx account balance --profile demo --json"
+          },
+          {
+            "intentId": "run_20260321182357429_148:protective-put:read-positions",
+            "stepIndex": 1,
+            "module": "account",
+            "requiresWrite": false,
+            "safeToRetry": true,
+            "reason": "Refresh account positions before materializing execution.",
+            "command": "okx account positions --profile demo --json"
+          },
+          {
+            "intentId": "run_20260321182357429_148:protective-put:read-ticker:btc",
+            "stepIndex": 2,
+            "module": "market",
+            "requiresWrite": false,
+            "safeToRetry": true,
+            "reason": "Refresh BTC price before materializing execution.",
+            "command": "okx market ticker BTC-USDT --profile demo --json"
+          },
+          {
+            "intentId": "run_20260321182357429_148:protective-put:write:3",
+            "stepIndex": 3,
+            "module": "option",
+            "requiresWrite": true,
+            "safeToRetry": false,
+            "clientOrderRef": "tmd264b33dc670264ebe6e2c",
+            "reason": "Buy downside convexity for the primary concentration symbol.",
+            "command": "okx option place-order --instId BTC-USD-260327-67000-P --side buy --sz 1 --px 0.0100 --profile demo --json"
+          }
+        ]
+      },
+      "ruleRefs": [
+        "perp-short-calc",
+        "protective-put-calc",
+        "collar-calc",
+        "funding-rate-priority",
+        "iv-percentile-priority",
+        "max-single-order",
+        "max-total-exposure",
+        "max-symbol-concentration",
+        "volatility-adjustment",
+        "leverage-tightening",
+        "ma-trend-detection",
+        "breakout-detection",
+        "atr-volatility-regime",
+        "trend-score-calc"
+      ],
+      "doctrineRefs": [
+        "black-swan-risk",
+        "discipline",
+        "turtle-trend",
+        "vol-hedging"
+      ]
+    }
+  }
+}
