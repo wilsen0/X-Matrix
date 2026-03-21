@@ -24,11 +24,13 @@ export type ArtifactKey =
   | "policy.plan-decision"
   | "execution.intent-bundle"
   | "execution.apply-decision"
+  | "execution.idempotency-check"
   | "approval.ticket"
   | "execution.reconciliation"
   | "report.operator-summary"
   | "diagnostics.probes"
   | "diagnostics.readiness"
+  | "operations.live-guard"
   | "operations.rehearsal-plan"
   | "operations.rehearsal-receipt";
 export type RunStatus =
@@ -204,6 +206,7 @@ export interface ApprovalTicket {
 }
 
 export interface IdempotencyLedgerEntry {
+  seq: number;
   fingerprint: string;
   intentId: string;
   runId: string;
@@ -220,11 +223,31 @@ export interface IdempotencyLedgerEntry {
   lastError?: string;
 }
 
-export interface IdempotencyLedger {
-  version: 2;
+export interface IdempotencyEvent {
+  seq: number;
+  at: string;
+  kind: "pending" | "executed" | "ambiguous";
+  fingerprint: string;
+  intentId: string;
+  runId: string;
+  proposal: string;
+  plane: ExecutionPlane;
+  module: string;
+  requiresWrite: boolean;
+  clientOrderRef?: string;
+  command: string;
+  remoteOrderId?: string;
+  lastError?: string;
+}
+
+export interface IdempotencyLedgerV3 {
+  version: 3;
+  nextSeq: number;
   updatedAt: string;
   entries: Record<string, IdempotencyLedgerEntry>;
 }
+
+export type IdempotencyLedger = IdempotencyLedgerV3;
 
 export interface ReconciliationItem {
   intentId: string;
@@ -243,6 +266,32 @@ export interface ReconciliationReport {
   status: "matched" | "ambiguous" | "failed";
   items: ReconciliationItem[];
   nextActions: string[];
+}
+
+export interface OperatorSummaryV3 {
+  runId: string;
+  plane: ExecutionPlane;
+  status: RunStatus;
+  isExecutable: boolean;
+  blockers: string[];
+  approval: {
+    provided: boolean;
+    ticketId: string | null;
+    approvedBy: string | null;
+    reason: string | null;
+  };
+  idempotency: {
+    checked: boolean;
+    hitCount: number;
+    ledgerSeq: number | null;
+  };
+  reconciliation: {
+    state: "none" | "pending" | "matched" | "ambiguous" | "failed";
+    required: boolean;
+  };
+  nextSafeAction: string;
+  requiresHumanAction: boolean;
+  generatedAt: string;
 }
 
 export interface SkillManifest {
@@ -409,6 +458,8 @@ export interface ExecutionResult {
   stderr: string;
   skipped: boolean;
   dryRun: boolean;
+  startedAt?: string;
+  finishedAt?: string;
   durationMs: number;
   attempt?: number;
   errorCategory?: ExecutionErrorCategory;
@@ -416,6 +467,7 @@ export interface ExecutionResult {
 }
 
 export interface ExecutionRecord {
+  executionId?: string;
   requestedAt: string;
   mode: "dry-run" | "execute";
   plane: ExecutionPlane;
@@ -425,7 +477,10 @@ export interface ExecutionRecord {
   results: ExecutionResult[];
   approvalTicketId?: string;
   idempotencyChecked?: boolean;
+  idempotencyLedgerSeq?: number;
+  reconciliationRequired?: boolean;
   reconciliationState?: "none" | "pending" | "matched" | "ambiguous" | "failed";
+  doctorCheckedAt?: string;
   blockedReason?: string;
 }
 
@@ -613,7 +668,7 @@ export interface JudgeSummary {
 
 export interface RunRecord {
   kind: "trademesh-run";
-  version: 2;
+  version: 3;
   id: string;
   goal: string;
   plane: ExecutionPlane;
@@ -635,6 +690,9 @@ export interface RunRecord {
   selectedProposal?: string;
   routeSummary?: RouteSummary;
   judgeSummary?: JudgeSummary;
+  operatorState?: "stable" | "attention" | "blocked";
+  lastSafeAction?: string;
+  requiresHumanAction?: boolean;
   notes: string[];
   createdAt: string;
   updatedAt: string;
