@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
-import { readFile, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { rm } from "node:fs/promises";
 import test from "node:test";
 import { applyRun, createPlan } from "../dist/runtime/executor.js";
+import { idempotencyLedgerFilePaths, loadIdempotencyLedger } from "../dist/runtime/idempotency.js";
 import { buildReferencePayloads, cleanupRunArtifacts, withMockOkx } from "./test-helpers.mjs";
 
-const LEDGER_PATH = join(process.cwd(), ".trademesh", "ledgers", "idempotency.json");
+const LEDGER_PATHS = idempotencyLedgerFilePaths();
 
 test("write intents hit local idempotency ledger on repeated apply execute", async () => {
   const payloads = await buildReferencePayloads();
@@ -21,7 +21,9 @@ test("write intents hit local idempotency ledger on repeated apply execute", asy
   let runId = null;
   const previousCorrelationCap = process.env.TRADEMESH_MAX_CORRELATION_BUCKET_PCT;
   process.env.TRADEMESH_MAX_CORRELATION_BUCKET_PCT = "100";
-  await rm(LEDGER_PATH, { force: true });
+  await rm(LEDGER_PATHS.snapshotPath, { force: true });
+  await rm(LEDGER_PATHS.journalPath, { force: true });
+  await rm(LEDGER_PATHS.lockPath, { force: true });
 
   try {
     await withMockOkx(payloads, async () => {
@@ -50,8 +52,8 @@ test("write intents hit local idempotency ledger on repeated apply execute", asy
       ) ?? [];
       assert.ok(hits.length >= 1);
 
-      const rawLedger = JSON.parse(await readFile(LEDGER_PATH, "utf8"));
-      assert.equal(rawLedger.version, 2);
+      const rawLedger = await loadIdempotencyLedger();
+      assert.equal(rawLedger.version, 3);
       const entries = Object.values(rawLedger.entries);
       assert.ok(entries.length >= 1);
       assert.ok(entries.some((entry) => entry.status === "executed"));
@@ -65,5 +67,7 @@ test("write intents hit local idempotency ledger on repeated apply execute", asy
   }
 
   await cleanupRunArtifacts(runId);
-  await rm(LEDGER_PATH, { force: true });
+  await rm(LEDGER_PATHS.snapshotPath, { force: true });
+  await rm(LEDGER_PATHS.journalPath, { force: true });
+  await rm(LEDGER_PATHS.lockPath, { force: true });
 });

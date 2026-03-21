@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { rm } from "node:fs/promises";
-import { join } from "node:path";
 import test from "node:test";
 import { applyRun, createPlan } from "../dist/runtime/executor.js";
+import { idempotencyLedgerFilePaths } from "../dist/runtime/idempotency.js";
 import { loadArtifactSnapshot } from "../dist/runtime/trace.js";
 import { buildReferencePayloads, cleanupRunArtifacts, withMockOkx } from "./test-helpers.mjs";
 
-const LEDGER_PATH = join(process.cwd(), ".trademesh", "ledgers", "idempotency.json");
+const LEDGER_PATHS = idempotencyLedgerFilePaths();
 
 test("apply execute requires --approved-by and emits approval ticket when provided", async () => {
   const payloads = await buildReferencePayloads();
@@ -22,7 +22,9 @@ test("apply execute requires --approved-by and emits approval ticket when provid
   let runId = null;
   const previousCorrelationCap = process.env.TRADEMESH_MAX_CORRELATION_BUCKET_PCT;
   process.env.TRADEMESH_MAX_CORRELATION_BUCKET_PCT = "100";
-  await rm(LEDGER_PATH, { force: true });
+  await rm(LEDGER_PATHS.snapshotPath, { force: true });
+  await rm(LEDGER_PATHS.journalPath, { force: true });
+  await rm(LEDGER_PATHS.lockPath, { force: true });
 
   try {
     await withMockOkx(payloads, async () => {
@@ -63,5 +65,7 @@ test("apply execute requires --approved-by and emits approval ticket when provid
   }
 
   await cleanupRunArtifacts(runId);
-  await rm(LEDGER_PATH, { force: true });
+  await rm(LEDGER_PATHS.snapshotPath, { force: true });
+  await rm(LEDGER_PATHS.journalPath, { force: true });
+  await rm(LEDGER_PATHS.lockPath, { force: true });
 });

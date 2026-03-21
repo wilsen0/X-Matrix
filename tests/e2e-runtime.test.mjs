@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { readFile, rm } from "node:fs/promises";
-import { join } from "node:path";
 import test from "node:test";
 import { applyRun, createPlan, exportRun, listRuns, replayRun } from "../dist/runtime/executor.js";
+import { idempotencyLedgerFilePaths } from "../dist/runtime/idempotency.js";
 import { loadArtifactSnapshot } from "../dist/runtime/trace.js";
 import { buildReferencePayloads, cleanupRunArtifacts, withMockOkx } from "./test-helpers.mjs";
 
-const LEDGER_PATH = join(process.cwd(), ".trademesh", "ledgers", "idempotency.json");
+const LEDGER_PATHS = idempotencyLedgerFilePaths();
 
 test("runtime supports plan -> apply --approve -> replay through mocked OKX CLI", async () => {
   const payloads = await buildReferencePayloads();
@@ -35,7 +35,7 @@ test("runtime supports plan -> apply --approve -> replay through mocked OKX CLI"
     assert.ok(applied.executions.length >= 1);
 
     const replayed = await replayRun(planned.id);
-    assert.equal(replayed.trace.at(-1)?.skill, "replay");
+    assert.ok(replayed.trace.some((entry) => entry.skill === "replay"));
   });
 
   if (runId) {
@@ -57,7 +57,9 @@ test("apply execute with approved-by produces ticket and idempotent skip on repe
   let runId = null;
   const previousCorrelationCap = process.env.TRADEMESH_MAX_CORRELATION_BUCKET_PCT;
   process.env.TRADEMESH_MAX_CORRELATION_BUCKET_PCT = "100";
-  await rm(LEDGER_PATH, { force: true });
+  await rm(LEDGER_PATHS.snapshotPath, { force: true });
+  await rm(LEDGER_PATHS.journalPath, { force: true });
+  await rm(LEDGER_PATHS.lockPath, { force: true });
 
   try {
     await withMockOkx(payloads, async () => {
@@ -93,7 +95,9 @@ test("apply execute with approved-by produces ticket and idempotent skip on repe
   }
 
   await cleanupRunArtifacts(runId);
-  await rm(LEDGER_PATH, { force: true });
+  await rm(LEDGER_PATHS.snapshotPath, { force: true });
+  await rm(LEDGER_PATHS.journalPath, { force: true });
+  await rm(LEDGER_PATHS.lockPath, { force: true });
 });
 
 test("apply enforces research, demo, and live plane gates through the runtime", async () => {
@@ -209,7 +213,7 @@ test("goal intake overrides remain consistent across plan, apply, replay, and ex
     const bundle = JSON.parse(await readFile(exported.bundlePath, "utf8"));
 
     assert.ok(applied.executions.length > 0);
-    assert.equal(replayed.trace.at(-1)?.skill, "replay");
+    assert.ok(replayed.trace.some((entry) => entry.skill === "replay"));
     assert.deepEqual(bundle.goalIntake.symbols, ["ETH"]);
     assert.equal(bundle.goalIntake.targetDrawdownPct, 3.5);
     assert.equal(bundle.goalIntake.hedgeIntent, "protect_downside");

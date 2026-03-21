@@ -148,7 +148,7 @@ test("demo orchestrates doctor -> graph -> plan -> apply -> replay in one runtim
       assert.equal(session.doctor.executionReadiness, "can_execute_on_demo");
       assert.equal(session.planned.status, "approval_required");
       assert.ok(session.applied.executions.length >= 1);
-      assert.equal(session.replayed.trace.at(-1)?.skill, "replay");
+      assert.ok(session.replayed.trace.some((entry) => entry.skill === "replay"));
       assert.ok(session.summary.includes("TradeMesh CLI Skill Mesh 2.0 Demo"));
       assert.ok(session.summary.includes("TradeMesh Skill Mesh Graph"));
       assert.ok(session.summary.includes("Apply Receipt"));

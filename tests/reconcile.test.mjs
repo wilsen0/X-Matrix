@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
-import { readFile, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { rm } from "node:fs/promises";
 import test from "node:test";
 import { applyRun, createPlan, reconcileRun } from "../dist/runtime/executor.js";
+import {
+  fingerprintWriteIntent,
+  idempotencyLedgerFilePaths,
+  markWriteIntentPending,
+} from "../dist/runtime/idempotency.js";
 import { loadArtifactSnapshot } from "../dist/runtime/trace.js";
 import { buildReferencePayloads, cleanupRunArtifacts, withMockOkx } from "./test-helpers.mjs";
 
-const LEDGER_PATH = join(process.cwd(), ".trademesh", "ledgers", "idempotency.json");
+const LEDGER_PATHS = idempotencyLedgerFilePaths();
 
 test("reconcile can resolve pending write intents and unblock repeated apply execute", async () => {
   const payloads = await buildReferencePayloads();
@@ -26,7 +30,9 @@ test("reconcile can resolve pending write intents and unblock repeated apply exe
   let runId = null;
   const previousCorrelationCap = process.env.TRADEMESH_MAX_CORRELATION_BUCKET_PCT;
   process.env.TRADEMESH_MAX_CORRELATION_BUCKET_PCT = "100";
-  await rm(LEDGER_PATH, { force: true });
+  await rm(LEDGER_PATHS.snapshotPath, { force: true });
+  await rm(LEDGER_PATHS.journalPath, { force: true });
+  await rm(LEDGER_PATHS.lockPath, { force: true });
 
   try {
     await withMockOkx(payloads, async () => {
@@ -41,11 +47,16 @@ test("reconcile can resolve pending write intents and unblock repeated apply exe
       });
       assert.equal(first.status, "executed");
 
-      const ledger = JSON.parse(await readFile(LEDGER_PATH, "utf8"));
-      const fingerprints = Object.keys(ledger.entries);
-      assert.ok(fingerprints.length >= 1);
-      ledger.entries[fingerprints[0]].status = "pending";
-      await writeFile(LEDGER_PATH, `${JSON.stringify(ledger, null, 2)}\n`, "utf8");
+      const writeIntent = first.executions.at(-1)?.results.find((result) => result.intent.requiresWrite)?.intent;
+      assert.ok(writeIntent);
+      const fingerprint = fingerprintWriteIntent(writeIntent, "demo");
+      await markWriteIntentPending({
+        fingerprint,
+        intent: writeIntent,
+        runId: planned.id,
+        proposal: first.executions.at(-1)?.proposal ?? "unknown",
+        plane: "demo",
+      });
 
       const blocked = await applyRun(planned.id, {
         plane: "demo",
@@ -83,5 +94,7 @@ test("reconcile can resolve pending write intents and unblock repeated apply exe
   }
 
   await cleanupRunArtifacts(runId);
-  await rm(LEDGER_PATH, { force: true });
+  await rm(LEDGER_PATHS.snapshotPath, { force: true });
+  await rm(LEDGER_PATHS.journalPath, { force: true });
+  await rm(LEDGER_PATHS.lockPath, { force: true });
 });
