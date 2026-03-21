@@ -15,11 +15,11 @@ The flagship pack is a hedge workflow:
 
 That flagship pack proves the runtime. It is not the whole product identity.
 
-For a single-document Chinese walkthrough of the product, runtime, safety model, and demo story, see [docs/PROJECT-INTRODUCTION.zh-CN.md](./docs/PROJECT-INTRODUCTION.zh-CN.md).
+For a single-document Chinese walkthrough of the product, runtime, safety model, user value, and current boundaries, see [PROJECT-INTRODUCTION.zh-CN.md](./PROJECT-INTRODUCTION.zh-CN.md).
 
 ## Why this shape
 
-TradeMesh is optimized for hackathon judging and operator trust:
+TradeMesh is optimized for operational clarity and operator trust:
 
 - `doctor` shows whether the local mesh is ready to plan, dry-run, or execute on OKX demo
 - `skills inspect` and `skills graph` expose the mesh topology from skill manifests
@@ -118,7 +118,7 @@ The knowledge layer under `docs/books`, `docs/rules`, `rules/`, and `doctrines/`
 
 ## Important Note
 
-This is a guarded hackathon runtime, not a production trading engine.
+This is a guarded trading runtime prototype, not a production trading engine yet.
 
 - use `apply` without `--execute` first
 - review policy and command preview before any write path
