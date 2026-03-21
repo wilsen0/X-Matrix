@@ -26,7 +26,7 @@ TradeMesh is optimized for operational clarity and operator trust:
 - `skills run <name>` executes a manifest-declared standalone mini-workflow per skill
 - `plan` produces ranked proposals, actionability labels, and a policy preview
 - `apply` keeps dry-run first and routes every write through `official-executor` with apply-only approval tickets
-- write intents use local idempotency ledger checks before execute
+- write intents use local v3 idempotency journal+snapshot checks before execute
 - `reconcile` converges ambiguous/pending write outcomes without replaying writes
 - `rehearse demo` validates policy + executor with a deterministic rehearsal route
 - `replay` reconstructs the route, evidence, policy, and execution receipt
@@ -43,7 +43,8 @@ node dist/bin/trademesh.js skills graph
 node dist/bin/trademesh.js skills run hedge-planner "hedge my BTC drawdown with demo first" --plane demo
 node dist/bin/trademesh.js plan "hedge my BTC drawdown with demo first" --plane demo --symbol BTC --max-drawdown 4 --intent protect-downside --horizon swing
 node dist/bin/trademesh.js apply <run-id> --plane demo --proposal protective-put --approve --approved-by alice
-node dist/bin/trademesh.js reconcile <run-id>
+node dist/bin/trademesh.js apply <run-id> --plane live --proposal protective-put --approve --approved-by alice --live-confirm YES_LIVE_EXECUTION --max-order-usd 500 --max-total-usd 1500 --execute
+node dist/bin/trademesh.js reconcile <run-id> --source auto --window-min 120
 node dist/bin/trademesh.js rehearse demo --approve
 node dist/bin/trademesh.js replay <run-id>
 node dist/bin/trademesh.js export <run-id>
@@ -61,11 +62,11 @@ pnpm test
 - `trademesh skills graph [--json]`
 - `trademesh runs list`
 - `trademesh plan "<goal>" [--plane research|demo|live] [--profile demo|live] [--symbol <CSV>] [--max-drawdown <number>] [--intent protect-downside|reduce-beta|de-risk] [--horizon intraday|swing|position] [--json]`
-- `trademesh apply <run-id> [--plane demo|live] [--profile demo|live] [--proposal <name>] [--approve] [--approved-by <name>] [--approval-reason <text>] [--execute] [--json]`
+- `trademesh apply <run-id> [--plane demo|live] [--profile demo|live] [--proposal <name>] [--approve] [--approved-by <name>] [--approval-reason <text>] [--live-confirm YES_LIVE_EXECUTION] [--max-order-usd <n>] [--max-total-usd <n>] [--execute] [--json]`
 - `trademesh rehearse demo [--execute] [--approve] [--json]`
 - `trademesh replay <run-id> [--skill <name>] [--json]`
 - `trademesh retry <run-id> [--json]`
-- `trademesh reconcile <run-id> [--json]`
+- `trademesh reconcile <run-id> [--source auto|client-id|fallback] [--window-min <n>] [--json]`
 - `trademesh export <run-id> [--format md|json] [--output <path>] [--json]`
 
 ## Structured Goal Intake
@@ -83,9 +84,14 @@ This makes planning more deterministic than the earlier prompt-only heuristics.
 - custom skills do not place orders directly
 - `research` blocks all write intents
 - `demo` defaults to preview-first, and `--execute` is explicit
-- `live` still requires `--approve`
+- `live` execute requires `--approve --approved-by --live-confirm YES_LIVE_EXECUTION`
+- `live` execute also requires `--max-order-usd` and `--max-total-usd` within policy limits
+- `live` execute requires a fresh `doctor --probe active --plane live` check (<=15 min)
 - `apply --execute` requires `--approve --approved-by <name>` and emits `approval.ticket`
-- write intents are deduplicated through `.trademesh/ledgers/idempotency.json`
+- write intents are deduplicated through:
+  - `.trademesh/ledgers/idempotency.v3.snapshot.json`
+  - `.trademesh/ledgers/idempotency.v3.journal.jsonl`
+  - `.trademesh/ledgers/idempotency.v3.lock`
 - every plan/apply/replay persists an auditable run record
 - write intents are never auto-retried; only safe read intents may be retried
 
@@ -115,12 +121,14 @@ This makes planning more deterministic than the earlier prompt-only heuristics.
 - `apply` is the only approval injection point; there is no standalone `approve` command
 - `approval-gate` creates `approval.ticket` for supervised write execution
 - idempotent write hits are skipped as `skipped(idempotent-hit)`
-- `reconcile <run-id>` updates `execution.reconciliation` and converges pending/ambiguous write state
+- `reconcile <run-id> --source auto|client-id|fallback --window-min <n>` updates `execution.reconciliation` and converges pending/ambiguous write state
 - `export` writes `report.md`, `bundle.json`, and `operator-summary.json`
+- apply route now includes explicit guardrail chain:
+  - `policy-gate -> approval-gate -> live-guard -> official-executor -> idempotency-gate -> operator-summarizer`
 
 ## Hard Cutover
 
-- run files are now `version: 2` and require `routeKind`
+- run files are now `version: 3` and require `routeKind`
 - legacy run files and legacy raw artifact snapshots are rejected by design
 - recreate old runs with the current runtime before applying/replaying/exporting
 
