@@ -1802,6 +1802,7 @@ export async function replayRun(runId: string, options: ReplayOptions = {}): Pro
   const record = await loadNormalizedRun(runId);
   const manifests = await loadSkillRegistry();
   const replayManifest = manifests.find((manifest) => manifest.name === "replay");
+  const operatorManifest = manifests.find((manifest) => manifest.name === "operator-summarizer");
   if (!replayManifest) {
     return record;
   }
@@ -1822,13 +1823,38 @@ export async function replayRun(runId: string, options: ReplayOptions = {}): Pro
     },
     sharedState,
   });
-
+  const replayTrace = [...traceWithoutReplay, replayOutput];
+  let operatorOutput: SkillOutput | undefined;
+  if (operatorManifest) {
+    operatorOutput = await executeSkill(operatorManifest, {
+      runId: record.id,
+      goal: record.goal,
+      plane: record.plane,
+      manifests,
+      trace: replayTrace,
+      artifacts,
+      runtimeInput: {
+        runStatus: record.status,
+        latestExecution: record.executions.at(-1),
+        nextSafeAction: `node dist/bin/trademesh.js export ${record.id}`,
+      },
+      sharedState,
+    });
+  }
+  const nextTrace = operatorOutput ? [...replayTrace, operatorOutput] : replayTrace;
+  const operatorSummary = artifacts.get<OperatorSummaryV3>("report.operator-summary")?.data;
   const nextRecord = hydrateRecord({
     ...record,
-    trace: [...traceWithoutReplay, replayOutput],
+    trace: nextTrace,
+    operatorState: operatorSummary
+      ? operatorSummary.requiresHumanAction
+        ? operatorSummary.blockers.length > 0 ? "blocked" : "attention"
+        : "stable"
+      : record.operatorState,
+    lastSafeAction: operatorSummary?.nextSafeAction ?? record.lastSafeAction,
+    requiresHumanAction: operatorSummary?.requiresHumanAction ?? record.requiresHumanAction,
     updatedAt: now(),
   });
-  putOperatorSummaryArtifact(artifacts, nextRecord, "replay-runtime");
 
   await saveRun(nextRecord);
   await saveArtifactSnapshot(runId, artifacts.snapshot());
@@ -2185,7 +2211,7 @@ function operatorNextAction(record: RunRecord, artifacts: ArtifactStore): string
   return `node dist/bin/trademesh.js export ${record.id}`;
 }
 
-function buildOperatorSummary(record: RunRecord, artifacts: ArtifactStore): Record<string, unknown> {
+function buildOperatorSummary(record: RunRecord, artifacts: ArtifactStore): OperatorSummaryV3 {
   const latestExecution = record.executions.at(-1) ?? null;
   const approvalTicket = latestApprovalTicket(artifacts);
   const reconciliation = latestReconciliation(artifacts);
@@ -2202,11 +2228,17 @@ function buildOperatorSummary(record: RunRecord, artifacts: ArtifactStore): Reco
   if (reconciliation && reconciliation.status !== "matched") {
     blockers.push(`reconciliation_${reconciliation.status}`);
   }
-
+  const reconciliationState = latestExecution?.reconciliationState ?? reconciliation?.status ?? "none";
+  const requiresHumanAction =
+    blockers.length > 0 ||
+    record.status === "approval_required" ||
+    reconciliationState === "pending" ||
+    reconciliationState === "ambiguous" ||
+    reconciliationState === "failed";
   const canExecuteNow =
-    record.status === "ready" ||
-    (record.status === "dry_run" && record.policyDecision?.outcome === "approved" && blockers.length === 0);
-
+    !requiresHumanAction &&
+    (record.status === "ready" ||
+      (record.status === "dry_run" && record.policyDecision?.outcome === "approved" && blockers.length === 0));
   return {
     runId: record.id,
     plane: record.plane,
@@ -2219,18 +2251,17 @@ function buildOperatorSummary(record: RunRecord, artifacts: ArtifactStore): Reco
       approvedBy: approvalTicket?.approvedBy ?? null,
       reason: approvalTicket?.reason ?? null,
     },
-    idempotencySummary: {
+    idempotency: {
       checked: latestExecution?.idempotencyChecked ?? false,
       hitCount: idempotentHitCount(latestExecution ?? undefined),
-      reconciliationState: latestExecution?.reconciliationState ?? "none",
+      ledgerSeq: latestExecution?.idempotencyLedgerSeq ?? null,
     },
-    reconciliationSummary: reconciliation
-      ? {
-          status: reconciliation.status,
-          items: reconciliation.items.length,
-        }
-      : null,
+    reconciliation: {
+      state: reconciliationState,
+      required: reconciliationState === "pending" || reconciliationState === "ambiguous" || reconciliationState === "failed",
+    },
     nextSafeAction: operatorNextAction(record, artifacts),
+    requiresHumanAction,
     generatedAt: now(),
   };
 }
@@ -2239,7 +2270,7 @@ function putOperatorSummaryArtifact(
   artifacts: ArtifactStore,
   record: RunRecord,
   producer: string,
-): Record<string, unknown> {
+): OperatorSummaryV3 {
   const summary = buildOperatorSummary(record, artifacts);
   putArtifact(artifacts, {
     key: "report.operator-summary",
@@ -2589,11 +2620,35 @@ function exportReport(record: RunRecord, artifacts: ArtifactStore): string {
 
 export async function exportRun(runId: string, options: ExportOptions = {}): Promise<ExportResult> {
   const record = await loadNormalizedRun(runId);
-  const artifacts = createArtifactStore(await loadArtifactSnapshot(runId), {});
+  const manifests = await loadSkillRegistry();
+  const operatorManifest = manifests.find((manifest) => manifest.name === "operator-summarizer");
+  const sharedState: Record<string, unknown> = {};
+  const artifacts = createArtifactStore(await loadArtifactSnapshot(runId), sharedState);
   const paths = exportPaths(runId, options.outputPath);
   await fs.mkdir(paths.outputDir, { recursive: true });
 
-  const operatorSummary = putOperatorSummaryArtifact(artifacts, record, "export-runtime");
+  let operatorSummary: Record<string, unknown>;
+  if (operatorManifest) {
+    await executeSkill(operatorManifest, {
+      runId: record.id,
+      goal: record.goal,
+      plane: record.plane,
+      manifests,
+      trace: record.trace,
+      artifacts,
+      runtimeInput: {
+        runStatus: record.status,
+        latestExecution: record.executions.at(-1),
+        nextSafeAction: operatorNextAction(record, artifacts),
+      },
+      sharedState,
+    });
+    operatorSummary =
+      artifacts.get<Record<string, unknown>>("report.operator-summary")?.data ??
+      buildOperatorSummary(record, artifacts);
+  } else {
+    operatorSummary = putOperatorSummaryArtifact(artifacts, record, "export-runtime");
+  }
   const bundle = exportBundlePayload(record, artifacts);
   const report = exportReport(record, artifacts);
 
@@ -2626,6 +2681,8 @@ export function formatRunSummary(record: RunRecord): string {
 
 export function formatReplay(record: RunRecord): string {
   const replayEntry = [...record.trace].reverse().find((entry) => entry.skill === "replay");
+  const operatorEntry = [...record.trace].reverse().find((entry) => entry.skill === "operator-summarizer");
+  const operatorSummary = (operatorEntry?.metadata as { operatorSummary?: OperatorSummaryV3 } | undefined)?.operatorSummary;
   const timelineRaw = Array.isArray(replayEntry?.metadata?.timeline) ? replayEntry.metadata?.timeline as string[] : [];
   const artifactRaw = Array.isArray(replayEntry?.metadata?.artifacts) ? replayEntry.metadata?.artifacts as string[] : [];
   const evidenceRaw = Array.isArray(replayEntry?.metadata?.evidence) ? replayEntry.metadata?.evidence as string[] : [];
@@ -2638,12 +2695,12 @@ export function formatReplay(record: RunRecord): string {
   return [
     ...header("Replay Timeline", record),
     block("Operator Snapshot", [
-      `Executable now: ${record.status === "ready" ? "yes" : "no"}`,
-      `Current blocker: ${latestExecution?.blockedReason ?? (record.status === "approval_required" ? "approval_required" : "none")}`,
-      `Approval ticket: ${latestExecution?.approvalTicketId ?? "none"}`,
-      `Idempotent hits: ${idempotentHitCount(latestExecution)}`,
-      `Needs reconcile: ${latestExecution?.reconciliationState === "pending" || latestExecution?.reconciliationState === "ambiguous" ? "yes" : "no"}`,
-      `Next safe action: ${latestExecution?.reconciliationState === "pending" || latestExecution?.reconciliationState === "ambiguous" ? `node dist/bin/trademesh.js reconcile ${record.id}` : `node dist/bin/trademesh.js export ${record.id}`}`,
+      `Executable now: ${operatorSummary?.isExecutable ? "yes" : "no"}`,
+      `Current blocker: ${operatorSummary && operatorSummary.blockers.length > 0 ? operatorSummary.blockers.join(" | ") : (latestExecution?.blockedReason ?? "none")}`,
+      `Approval ticket: ${operatorSummary?.approval.ticketId ?? latestExecution?.approvalTicketId ?? "none"}`,
+      `Idempotent hits: ${operatorSummary?.idempotency.hitCount ?? idempotentHitCount(latestExecution)}`,
+      `Needs reconcile: ${operatorSummary?.reconciliation.required ? "yes" : "no"}`,
+      `Next safe action: ${operatorSummary?.nextSafeAction ?? `node dist/bin/trademesh.js export ${record.id}`}`,
     ]),
     block("Run Snapshot", [
       `Approved: ${record.approved ? "yes" : "no"}`,
