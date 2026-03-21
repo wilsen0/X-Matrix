@@ -9,6 +9,8 @@ import {
   checkWriteIntentIdempotency,
   deriveClientOrderRef,
   fingerprintWriteIntent,
+  IdempotencyLockError,
+  loadIdempotencyLedger,
   markWriteIntentAmbiguous,
   markWriteIntentExecuted,
   markWriteIntentPending,
@@ -40,6 +42,7 @@ import type {
   ExecutionResult,
   GoalIntake,
   GoalIntakeOverrides,
+  OperatorSummaryV3,
   OkxCommandIntent,
   OrderPlanStep,
   PolicyDecision,
@@ -73,6 +76,9 @@ interface ApplyOptions {
   approve?: boolean;
   approvedBy?: string;
   approvalReason?: string;
+  liveConfirm?: string;
+  maxOrderUsd?: number;
+  maxTotalUsd?: number;
   execute?: boolean;
 }
 
@@ -89,6 +95,11 @@ interface DemoOptions {
 interface ExportOptions {
   format?: "md" | "json";
   outputPath?: string;
+}
+
+interface ReconcileOptions {
+  source?: "auto" | "client-id" | "fallback";
+  windowMin?: number;
 }
 
 interface RehearseOptions {
