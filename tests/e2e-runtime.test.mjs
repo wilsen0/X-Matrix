@@ -43,31 +43,41 @@ test("runtime supports plan -> apply --approve -> replay through mocked OKX CLI"
 test("apply execute with approved-by produces ticket and idempotent skip on repeated run", async () => {
   const payloads = await buildReferencePayloads();
   let runId = null;
+  const previousCorrelationCap = process.env.TRADEMESH_MAX_CORRELATION_BUCKET_PCT;
+  process.env.TRADEMESH_MAX_CORRELATION_BUCKET_PCT = "100";
 
-  await withMockOkx(payloads, async () => {
-    const planned = await createPlan("hedge my btc drawdown with demo execute", { plane: "demo" });
-    runId = planned.id;
+  try {
+    await withMockOkx(payloads, async () => {
+      const planned = await createPlan("hedge my btc drawdown with demo execute", { plane: "demo" });
+      runId = planned.id;
 
-    const executed = await applyRun(planned.id, {
-      plane: "demo",
-      approve: true,
-      approvedBy: "alice",
-      execute: true,
+      const executed = await applyRun(planned.id, {
+        plane: "demo",
+        approve: true,
+        approvedBy: "alice",
+        execute: true,
+      });
+      assert.equal(executed.status, "executed");
+      assert.equal(typeof executed.executions.at(-1)?.approvalTicketId, "string");
+
+      const repeated = await applyRun(planned.id, {
+        plane: "demo",
+        approve: true,
+        approvedBy: "alice",
+        execute: true,
+      });
+      const idempotentHits = repeated.executions.at(-1)?.results.filter((result) =>
+        result.stderr.includes("skipped(idempotent-hit)")
+      ) ?? [];
+      assert.ok(idempotentHits.length >= 1);
     });
-    assert.equal(executed.status, "executed");
-    assert.equal(typeof executed.executions.at(-1)?.approvalTicketId, "string");
-
-    const repeated = await applyRun(planned.id, {
-      plane: "demo",
-      approve: true,
-      approvedBy: "alice",
-      execute: true,
-    });
-    const idempotentHits = repeated.executions.at(-1)?.results.filter((result) =>
-      result.stderr.includes("skipped(idempotent-hit)")
-    ) ?? [];
-    assert.ok(idempotentHits.length >= 1);
-  });
+  } finally {
+    if (previousCorrelationCap === undefined) {
+      delete process.env.TRADEMESH_MAX_CORRELATION_BUCKET_PCT;
+    } else {
+      process.env.TRADEMESH_MAX_CORRELATION_BUCKET_PCT = previousCorrelationCap;
+    }
+  }
 
   await cleanupRunArtifacts(runId);
 });

@@ -10,40 +10,50 @@ const LEDGER_PATH = join(process.cwd(), ".trademesh", "ledgers", "idempotency.js
 test("write intents hit local idempotency ledger on repeated apply execute", async () => {
   const payloads = await buildReferencePayloads();
   let runId = null;
+  const previousCorrelationCap = process.env.TRADEMESH_MAX_CORRELATION_BUCKET_PCT;
+  process.env.TRADEMESH_MAX_CORRELATION_BUCKET_PCT = "100";
   await rm(LEDGER_PATH, { force: true });
 
-  await withMockOkx(payloads, async () => {
-    const planned = await createPlan("hedge my BTC drawdown with demo execute", { plane: "demo" });
-    runId = planned.id;
+  try {
+    await withMockOkx(payloads, async () => {
+      const planned = await createPlan("hedge my BTC drawdown with demo execute", { plane: "demo" });
+      runId = planned.id;
 
-    const first = await applyRun(planned.id, {
-      plane: "demo",
-      approve: true,
-      approvedBy: "alice",
-      execute: true,
+      const first = await applyRun(planned.id, {
+        plane: "demo",
+        approve: true,
+        approvedBy: "alice",
+        execute: true,
+      });
+      assert.equal(first.status, "executed");
+      assert.equal(first.executions.at(-1)?.idempotencyChecked, true);
+
+      const second = await applyRun(planned.id, {
+        plane: "demo",
+        approve: true,
+        approvedBy: "alice",
+        execute: true,
+      });
+      assert.equal(second.status, "executed");
+      assert.equal(second.executions.at(-1)?.idempotencyChecked, true);
+      const hits = second.executions.at(-1)?.results.filter((result) =>
+        result.stderr.includes("skipped(idempotent-hit)")
+      ) ?? [];
+      assert.ok(hits.length >= 1);
+
+      const rawLedger = JSON.parse(await readFile(LEDGER_PATH, "utf8"));
+      assert.equal(rawLedger.version, 2);
+      const entries = Object.values(rawLedger.entries);
+      assert.ok(entries.length >= 1);
+      assert.ok(entries.some((entry) => entry.status === "executed"));
     });
-    assert.equal(first.status, "executed");
-    assert.equal(first.executions.at(-1)?.idempotencyChecked, true);
-
-    const second = await applyRun(planned.id, {
-      plane: "demo",
-      approve: true,
-      approvedBy: "alice",
-      execute: true,
-    });
-    assert.equal(second.status, "executed");
-    assert.equal(second.executions.at(-1)?.idempotencyChecked, true);
-    const hits = second.executions.at(-1)?.results.filter((result) =>
-      result.stderr.includes("skipped(idempotent-hit)")
-    ) ?? [];
-    assert.ok(hits.length >= 1);
-
-    const rawLedger = JSON.parse(await readFile(LEDGER_PATH, "utf8"));
-    assert.equal(rawLedger.version, 2);
-    const entries = Object.values(rawLedger.entries);
-    assert.ok(entries.length >= 1);
-    assert.ok(entries.some((entry) => entry.status === "executed"));
-  });
+  } finally {
+    if (previousCorrelationCap === undefined) {
+      delete process.env.TRADEMESH_MAX_CORRELATION_BUCKET_PCT;
+    } else {
+      process.env.TRADEMESH_MAX_CORRELATION_BUCKET_PCT = previousCorrelationCap;
+    }
+  }
 
   await cleanupRunArtifacts(runId);
   await rm(LEDGER_PATH, { force: true });

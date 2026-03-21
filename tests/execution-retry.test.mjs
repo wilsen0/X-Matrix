@@ -86,26 +86,37 @@ test("write intents are never auto retried even when the failure looks retryable
   };
 
   let runId = null;
-  await withRetryAwareMockOkx(payloads, async (attemptsPath) => {
-    const planned = await createPlan("hedge my btc drawdown with demo first", { plane: "demo" });
-    runId = planned.id;
+  const previousCorrelationCap = process.env.TRADEMESH_MAX_CORRELATION_BUCKET_PCT;
+  process.env.TRADEMESH_MAX_CORRELATION_BUCKET_PCT = "100";
+  try {
+    await withRetryAwareMockOkx(payloads, async (attemptsPath) => {
+      const planned = await createPlan("hedge my btc drawdown with demo first", { plane: "demo" });
+      runId = planned.id;
 
-    const applied = await applyRun(planned.id, {
-      plane: "demo",
-      approve: true,
-      execute: true,
+      const applied = await applyRun(planned.id, {
+        plane: "demo",
+        approve: true,
+        approvedBy: "alice",
+        execute: true,
+      });
+      const attempts = Number((await readFile(attemptsPath, "utf8")).trim());
+      const latestExecution = applied.executions.at(-1);
+      const failedWrite = latestExecution?.results.find((result) => result.intent.requiresWrite);
+
+      assert.equal(applied.status, "failed");
+      assert.equal(attempts, 1);
+      assert.ok(failedWrite);
+      assert.equal(failedWrite.intent.safeToRetry, false);
+      assert.notEqual(failedWrite.errorCategory, undefined);
+      assert.notEqual(failedWrite.retryScheduled, true);
     });
-    const attempts = Number((await readFile(attemptsPath, "utf8")).trim());
-    const latestExecution = applied.executions.at(-1);
-    const failedWrite = latestExecution?.results.find((result) => result.intent.requiresWrite);
-
-    assert.equal(applied.status, "failed");
-    assert.equal(attempts, 1);
-    assert.ok(failedWrite);
-    assert.equal(failedWrite.intent.safeToRetry, false);
-    assert.notEqual(failedWrite.errorCategory, undefined);
-    assert.notEqual(failedWrite.retryScheduled, true);
-  });
+  } finally {
+    if (previousCorrelationCap === undefined) {
+      delete process.env.TRADEMESH_MAX_CORRELATION_BUCKET_PCT;
+    } else {
+      process.env.TRADEMESH_MAX_CORRELATION_BUCKET_PCT = previousCorrelationCap;
+    }
+  }
 
   await cleanupRunArtifacts(runId);
 });
