@@ -140,13 +140,17 @@ function normalizeProposalIntents(proposal: SkillProposal): OkxCommandIntent[] {
     return proposal.intents;
   }
 
-  return (proposal.cliIntents ?? []).map((command) => {
+  return (proposal.cliIntents ?? []).map((command, index) => {
     const module = inferModuleFromCommand(command);
+    const requiresWrite = inferWriteFromCommand(command, module);
     return {
+      intentId: `${proposal.name}:${index}`,
+      stepIndex: index,
+      safeToRetry: !requiresWrite,
       command,
       args: command.trim().split(/\s+/),
       module,
-      requiresWrite: inferWriteFromCommand(command, module),
+      requiresWrite,
       reason: "Migrated from legacy cliIntents string command.",
     };
   });

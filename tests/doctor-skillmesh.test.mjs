@@ -54,6 +54,9 @@ test("doctor reports dry-run apply readiness when the mesh is installed but okx 
       const report = await runDoctor();
 
       assert.equal(report.executionReadiness, "can_dry_run_apply");
+      assert.equal(report.planReadiness, "degraded");
+      assert.equal(report.applyReadiness, "ready");
+      assert.equal(report.executeReadiness, "degraded");
       assert.equal(report.capabilitySnapshot.readinessGrade, "C");
       assert.equal(report.capabilitySnapshot.recommendedPlane, "demo");
       assert.ok(report.summary.includes("can dry-run apply"));
@@ -72,6 +75,9 @@ test("doctor reports okx-only readiness when CLI exists but no executable config
         const report = await runDoctor();
 
         assert.equal(report.executionReadiness, "can_dry_run_apply");
+        assert.equal(report.planReadiness, "ready");
+        assert.equal(report.applyReadiness, "degraded");
+        assert.equal(report.executeReadiness, "degraded");
         assert.equal(report.capabilitySnapshot.readinessGrade, "C");
         assert.equal(report.capabilitySnapshot.configExists, false);
         assert.equal(report.capabilitySnapshot.demoProfileLikelyConfigured, false);
@@ -87,6 +93,7 @@ test("doctor reports non-demo readiness when config exists but demo profile is a
       const report = await runDoctor();
 
       assert.equal(report.executionReadiness, "can_dry_run_apply");
+      assert.equal(report.executeReadiness, "degraded");
       assert.equal(report.capabilitySnapshot.readinessGrade, "B");
       assert.equal(report.capabilitySnapshot.configExists, true);
       assert.equal(report.capabilitySnapshot.demoProfileLikelyConfigured, false);
@@ -102,6 +109,7 @@ test("doctor reports demo-executable readiness when CLI and demo profile are bot
       const report = await runDoctor();
 
       assert.equal(report.executionReadiness, "can_execute_on_demo");
+      assert.equal(report.executeReadiness, "ready");
       assert.equal(report.capabilitySnapshot.readinessGrade, "A");
       assert.equal(report.capabilitySnapshot.demoProfileLikelyConfigured, true);
       assert.equal(report.capabilitySnapshot.recommendedPlane, "demo");

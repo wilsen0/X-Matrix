@@ -9,7 +9,7 @@ writes: false
 always_on: false
 triggers: [risk, hedge, drawdown, protect, downside, 对冲, 风险, 回撤]
 entrypoint: ./run.js
-consumes: [trade.thesis, portfolio.risk-profile, market.snapshot]
+consumes: [goal.intake, trade.thesis, portfolio.risk-profile, market.snapshot]
 produces: [planning.proposals]
 preferred_handoffs: [scenario-sim]
 repeatable: false

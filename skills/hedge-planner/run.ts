@@ -1,6 +1,7 @@
 import { putArtifact } from "../../runtime/artifacts.js";
 import { artifactReference } from "../../runtime/artifact-schema.js";
 import type {
+  GoalIntake,
   MarketRegime,
   OptionOrderPlanStep,
   OptionPlaceOrderParams,
@@ -118,7 +119,10 @@ function readLastPrice(marketSnapshot: unknown, symbol: string): number {
   );
 }
 
-function choosePrimarySymbol(profile: PortfolioRiskProfile): string {
+function choosePrimarySymbol(profile: PortfolioRiskProfile, goalIntake?: GoalIntake): string {
+  if (goalIntake && goalIntake.symbols.length > 0) {
+    return goalIntake.symbols[0] ?? DEFAULT_SYMBOL;
+  }
   if (profile.concentration.topSymbol && profile.concentration.topSymbol !== "n/a") {
     return profile.concentration.topSymbol;
   }
@@ -293,7 +297,8 @@ function buildProposal(
   profile: PortfolioRiskProfile,
   marketSnapshot: unknown,
 ): SkillProposal {
-  const primarySymbol = choosePrimarySymbol(profile);
+  const goalIntake = context.artifacts.get<GoalIntake>("goal.intake")?.data;
+  const primarySymbol = choosePrimarySymbol(profile, goalIntake);
   const referencePx = readLastPrice(marketSnapshot, primarySymbol);
   const absNetUsd = Math.abs(profile.directionalExposure.netUsd);
   const cappedNotional = Math.min(
@@ -305,6 +310,7 @@ function buildProposal(
     thesis.riskBudget.maxPremiumSpendUsd,
   );
   const artifactRefs = [
+    artifactReference(context.artifacts.get("goal.intake"), "goal.intake", "portfolio-xray"),
     artifactReference(context.artifacts.get("trade.thesis"), "trade.thesis", "trade-thesis"),
     artifactReference(context.artifacts.get("portfolio.risk-profile"), "portfolio.risk-profile", "portfolio-xray"),
     artifactReference(context.artifacts.get("market.snapshot"), "market.snapshot", "market-scan"),
@@ -503,6 +509,7 @@ function annotateRanking(proposals: SkillProposal[]): SkillProposal[] {
 export default async function run(context: SkillContext): Promise<SkillOutput> {
   const thesis = context.artifacts.require<TradeThesis>("trade.thesis").data;
   const profile = context.artifacts.require<PortfolioRiskProfile>("portfolio.risk-profile").data;
+  const goalIntake = context.artifacts.get<GoalIntake>("goal.intake")?.data;
   const marketSnapshot = context.artifacts.get("market.snapshot")?.data;
   const regime = context.artifacts.get<MarketRegime>("market.regime")?.data ?? {
     symbols: [],
@@ -540,6 +547,7 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
     summary: "Rank hedge proposals from the shared trade thesis instead of raw market heuristics.",
     facts: [
       `Primary strategy: ${first?.strategyId ?? "n/a"}.`,
+      `Goal intake resolved symbols=${goalIntake?.symbols.join(", ") ?? "n/a"} intent=${goalIntake?.hedgeIntent ?? "n/a"} horizon=${goalIntake?.timeHorizon ?? "n/a"}.`,
       `Proposal ranking: ${proposals.map((proposal) => `${proposal.name}:${proposal.scoreBreakdown?.total ?? 0}`).join(" -> ")}.`,
       `Risk budget: single=${thesis.riskBudget.maxSingleOrderUsd.toFixed(0)} premium=${thesis.riskBudget.maxPremiumSpendUsd.toFixed(0)} margin=${thesis.riskBudget.maxMarginUseUsd.toFixed(0)}.`,
     ],
@@ -548,6 +556,7 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
       requiredModules: [...new Set(proposals.flatMap((proposal) => proposal.requiredModules ?? []))],
       thesisDirection: thesis.directionalRegime,
       thesisBias: thesis.hedgeBias,
+      goalSymbols: goalIntake?.symbols ?? [],
     },
     proposal: proposals,
     risk: {
@@ -564,13 +573,14 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
     handoff: "scenario-sim",
     handoffReason: "Proposals are ranked and ready for scenario stress testing.",
     producedArtifacts: ["planning.proposals"],
-    consumedArtifacts: ["trade.thesis", "portfolio.risk-profile", "market.snapshot"],
+    consumedArtifacts: ["goal.intake", "trade.thesis", "portfolio.risk-profile", "market.snapshot"],
     ruleRefs: thesis.ruleRefs,
     doctrineRefs: thesis.doctrineRefs,
     metadata: {
       rankedStrategies,
       selectedPrimaryStrategy: first?.strategyId ?? null,
       thesisBias: thesis.hedgeBias,
+      goalIntake: goalIntake ?? null,
     },
     timestamp: new Date().toISOString(),
   };

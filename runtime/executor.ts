@@ -1,8 +1,12 @@
+import { existsSync, promises as fs } from "node:fs";
+import { join, resolve } from "node:path";
 import { executeIntent, inspectOkxEnvironment } from "./okx.js";
 import { createArtifactStore, putArtifact } from "./artifacts.js";
 import { currentArtifactVersion } from "./artifact-schema.js";
 import { runPlanningGraph } from "./graph-runtime.js";
+import { formatDrawdownPct } from "./goal-intake.js";
 import { buildSkillGraphView, inspectSkillSurface, type SkillGraphView, type SkillRuntimeSurface } from "./mesh.js";
+import { getProjectPaths } from "./paths.js";
 import { evaluatePolicy } from "./policy.js";
 import { loadSkillHandler, loadSkillRegistry } from "./registry.js";
 import { seedReasons } from "./router.js";
@@ -18,10 +22,13 @@ import {
 import type {
   ArtifactStore,
   CapabilitySnapshot,
+  CommandPreviewEntry,
   ExecutionErrorCategory,
   ExecutionPlane,
   ExecutionRecord,
   ExecutionResult,
+  GoalIntake,
+  GoalIntakeOverrides,
   OkxCommandIntent,
   OrderPlanStep,
   PolicyDecision,
@@ -38,6 +45,7 @@ import type {
 
 interface PlanOptions {
   plane: ExecutionPlane;
+  goalOverrides?: GoalIntakeOverrides;
 }
 
 interface ApplyOptions {
@@ -54,13 +62,19 @@ interface ReplayOptions {
 interface DemoOptions {
   plane: ExecutionPlane;
   execute?: boolean;
+  goalOverrides?: GoalIntakeOverrides;
+}
+
+interface ExportOptions {
+  format?: "md" | "json";
+  outputPath?: string;
 }
 
 interface ExecutionBundle {
   proposal: string;
   orderPlan: OrderPlanStep[];
   intents: OkxCommandIntent[];
-  commandPreview?: string[];
+  commandPreview?: CommandPreviewEntry[];
 }
 
 export interface DemoSession {
@@ -69,6 +83,14 @@ export interface DemoSession {
   planned: RunRecord;
   applied: RunRecord;
   replayed: RunRecord;
+  summary: string;
+}
+
+export interface ExportResult {
+  runId: string;
+  outputDir: string;
+  bundlePath: string;
+  reportPath: string;
   summary: string;
 }
 
@@ -128,6 +150,29 @@ function createFallbackCapabilitySnapshot(): CapabilitySnapshot {
   };
 }
 
+function exportPaths(runId: string, outputPath?: string): {
+  outputDir: string;
+  bundlePath: string;
+  reportPath: string;
+} {
+  const { meshExportsRoot } = getProjectPaths();
+  const outputDir = outputPath ? resolve(outputPath) : join(meshExportsRoot, runId);
+  return {
+    outputDir,
+    bundlePath: join(outputDir, "bundle.json"),
+    reportPath: join(outputDir, "report.md"),
+  };
+}
+
+function hasExportBundle(runId: string): boolean {
+  const paths = exportPaths(runId);
+  return existsSync(paths.bundlePath) && existsSync(paths.reportPath);
+}
+
+function goalIntakeFromArtifacts(artifacts: ArtifactStore): GoalIntake | undefined {
+  return artifacts.get<GoalIntake>("goal.intake")?.data;
+}
+
 function inferModuleFromCommand(command: string): string {
   const tokens = command.trim().split(/\s+/);
   if (tokens[0] === "okx" && tokens[1]) {
@@ -147,12 +192,28 @@ function inferWriteFromCommand(command: string, module: string): boolean {
 
 function toLegacyIntent(command: string): OkxCommandIntent {
   const module = inferModuleFromCommand(command);
+  const requiresWrite = inferWriteFromCommand(command, module);
   return {
+    intentId: `${module}:${command}`,
+    stepIndex: 0,
+    safeToRetry: !requiresWrite,
     command,
     args: command.trim().split(/\s+/),
     module,
-    requiresWrite: inferWriteFromCommand(command, module),
+    requiresWrite,
     reason: "Migrated from legacy cliIntents string command.",
+  };
+}
+
+function previewEntryFromIntent(intent: OkxCommandIntent): CommandPreviewEntry {
+  return {
+    intentId: intent.intentId,
+    stepIndex: intent.stepIndex,
+    module: intent.module,
+    requiresWrite: intent.requiresWrite,
+    safeToRetry: intent.safeToRetry,
+    reason: intent.reason,
+    command: intent.command,
   };
 }
 
@@ -457,7 +518,7 @@ function extractExecutionBundle(artifacts: ArtifactStore, proposal: SkillProposa
     proposal: normalized.name,
     orderPlan: normalized.orderPlan ?? [],
     intents: normalized.intents ?? [],
-    commandPreview: (normalized.intents ?? []).map((intent) => intent.command),
+    commandPreview: (normalized.intents ?? []).map((intent) => previewEntryFromIntent(intent)),
   };
 }
 
@@ -474,6 +535,7 @@ function skippedResult(
     stderr: reason,
     skipped: true,
     dryRun: !executeRequested,
+    durationMs: 0,
   };
 }
 
@@ -591,15 +653,23 @@ async function executeWithRecovery(
 
     const category = classifyExecutionFailure(firstAttempt);
     firstAttempt.errorCategory = category;
-    if (category === "retryable") {
+    if (category === "retryable" && intent.safeToRetry) {
       firstAttempt.retryScheduled = true;
     }
     results.push(firstAttempt);
     errors.push(
-      buildRunErrorRecord(options.runId, options.proposal, intent, firstAttempt, category, 1, category === "retryable"),
+      buildRunErrorRecord(
+        options.runId,
+        options.proposal,
+        intent,
+        firstAttempt,
+        category,
+        1,
+        category === "retryable" && intent.safeToRetry,
+      ),
     );
 
-    if (category === "retryable") {
+    if (category === "retryable" && intent.safeToRetry) {
       await sleep(2_000);
       const secondAttempt = executeIntent(intent, true);
       secondAttempt.attempt = 2;
@@ -685,6 +755,7 @@ export async function createPlan(goal: string, options: PlanOptions): Promise<Ru
       artifacts,
       runtimeInput: {
         capabilitySnapshot,
+        goalOverrides: options.goalOverrides ?? {},
       },
       sharedState,
     },
@@ -712,6 +783,9 @@ export async function createPlan(goal: string, options: PlanOptions): Promise<Ru
     notes: [
       "Plan created from the local skill registry.",
       "Planning executed through the graph-aware artifact runtime.",
+      ...(options.goalOverrides
+        ? ["Goal intake overrides were applied before portfolio and hedge planning."]
+        : []),
       "Use apply --proposal <name> to select an execution path.",
       "Use --approve and --execute for explicit write execution.",
       `Initial plane: ${options.plane}`,
@@ -842,17 +916,50 @@ export async function applyRun(runId: string, options: ApplyOptions): Promise<Ru
 
 export async function retryRun(runId: string): Promise<RunRecord> {
   const record = await loadNormalizedRun(runId);
-  const latestFailedExecution = [...record.executions].reverse().find((execution) => execution.status === "failed");
-  if (!latestFailedExecution) {
+  const latestFailedExecution = [...record.executions].reverse().find((execution) => execution.status === "failed" || execution.results.some((result) => !result.ok));
+  if (!latestFailedExecution || latestFailedExecution.mode !== "execute") {
     throw new Error(`Run ${runId} has no failed execution to retry.`);
   }
 
-  return applyRun(runId, {
-    plane: latestFailedExecution.plane,
-    proposalName: latestFailedExecution.proposal,
-    approve: latestFailedExecution.approvalProvided || record.plane !== "research",
-    execute: latestFailedExecution.mode === "execute",
+  const retryableIntents = latestFailedExecution.results
+    .filter((result) => !result.ok && !result.skipped && result.intent.safeToRetry)
+    .map((result) => result.intent);
+  if (retryableIntents.length === 0) {
+    throw new Error(`Run ${runId} has no safe retry intents; retry only replays failed read-path intents.`);
+  }
+
+  const executionOutcome = await executeWithRecovery(retryableIntents, {
+    runId: record.id,
+    proposal: latestFailedExecution.proposal,
+    executeRequested: true,
   });
+  const executionOk = executionOutcome.finalResults.every((result) => result.ok);
+  const status: RunStatus = executionOk ? "executed" : "failed";
+  const retryExecution: ExecutionRecord = {
+    requestedAt: now(),
+    mode: "execute",
+    plane: latestFailedExecution.plane,
+    proposal: latestFailedExecution.proposal,
+    approvalProvided: latestFailedExecution.approvalProvided,
+    status,
+    results: executionOutcome.results,
+    blockedReason: executionOk ? undefined : "Retry execution still contains failed safe-to-retry intents.",
+  };
+
+  const nextRecord = hydrateRecord({
+    ...record,
+    status,
+    executions: [...record.executions, retryExecution],
+    errors: [...record.errors, ...executionOutcome.errors],
+    notes: [
+      ...record.notes,
+      `Retry ${status}: replayed ${retryableIntents.length} safe-to-retry intent(s).`,
+    ],
+    updatedAt: now(),
+  });
+
+  await saveRun(nextRecord);
+  return nextRecord;
 }
 
 export async function replayRun(runId: string, options: ReplayOptions = {}): Promise<RunRecord> {
@@ -899,6 +1006,7 @@ interface RunListSummary {
   plane: string;
   route: string[];
   selectedProposal?: string;
+  exported: boolean;
 }
 
 function safeRunListSummary(raw: unknown): RunListSummary {
@@ -910,6 +1018,7 @@ function safeRunListSummary(raw: unknown): RunListSummary {
       status: "unknown",
       plane: "unknown",
       route: [],
+      exported: false,
     };
   }
 
@@ -922,6 +1031,7 @@ function safeRunListSummary(raw: unknown): RunListSummary {
     plane: typeof record.plane === "string" ? record.plane : "unknown",
     route: Array.isArray(record.route) ? record.route.filter((entry): entry is string => typeof entry === "string") : [],
     selectedProposal: typeof record.selectedProposal === "string" ? record.selectedProposal : undefined,
+    exported: typeof record.id === "string" ? hasExportBundle(record.id) : false,
   };
 }
 
@@ -959,15 +1069,23 @@ function header(title: string, record: RunRecord): string[] {
 
 function formatExecutionResult(result: ExecutionResult): string {
   if (result.skipped && result.dryRun) {
-    return `[preview] ${result.intent.command}`;
+    return `[preview] ${result.intent.intentId} | module=${result.intent.module} write=${result.intent.requiresWrite ? "yes" : "no"} retry=${result.intent.safeToRetry ? "yes" : "no"} | ${result.intent.command}`;
   }
   if (result.skipped) {
-    return `[skip] ${result.intent.command}`;
+    return `[skip] ${result.intent.intentId} | module=${result.intent.module} retry=${result.intent.safeToRetry ? "yes" : "no"} | ${result.intent.command}`;
   }
   if (result.ok) {
-    return `[ok] ${result.intent.command}`;
+    return `[ok] ${result.intent.intentId} | ${result.durationMs}ms | ${result.intent.command}`;
   }
-  return `[fail] ${result.intent.command}`;
+  return `[fail] ${result.intent.intentId} | ${result.durationMs}ms | ${result.intent.command}`;
+}
+
+function traceGoalIntake(record: RunRecord): GoalIntake | null {
+  const candidate = latestTraceEntry(record.trace, "portfolio-xray")?.metadata?.goalIntake;
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    return null;
+  }
+  return candidate as GoalIntake;
 }
 
 function traceFacts(record: RunRecord, skillName: string, limit = 3): string[] {
@@ -995,11 +1113,40 @@ function proposalLines(record: RunRecord): string[] {
     const scoreText = score
       ? `score=${score.total} protect=${score.protection} cost=${score.cost} exec=${score.executionRisk} policy=${score.policyFit} data=${score.dataConfidence}`
       : "score=n/a";
+    const readiness = proposal.executionReadiness ?? "unknown";
     const why = proposal.recommended
       ? proposal.reason
       : proposal.rejectionReason ?? proposal.reason;
-    return `${marker} ${proposal.name} | ${scoreText} | ${truncate(why, 120)}`;
+    return `${marker} ${proposal.name} | ${scoreText} | readiness=${readiness} actionable=${proposal.actionable ? "yes" : "no"} | ${truncate(why, 120)}`;
   });
+}
+
+function actionabilityLines(record: RunRecord): string[] {
+  if (record.proposals.length === 0) {
+    return ["No actionability data is available."];
+  }
+
+  return record.proposals.map((proposal) => {
+    const topGap = proposal.capabilityGaps?.[0];
+    const topGapText = topGap ? `[${topGap.severity}] ${topGap.message}` : "none";
+    return `${proposal.name}: ${proposal.executionReadiness ?? "unknown"} | gap=${topGapText}`;
+  });
+}
+
+function goalIntakeLines(record: RunRecord): string[] {
+  const intake = traceGoalIntake(record);
+  if (!intake) {
+    return ["Goal intake was not captured on this run."];
+  }
+
+  return [
+    `Symbols: ${intake.symbols.join(", ")}`,
+    `Drawdown target: ${formatDrawdownPct(intake.targetDrawdownPct)}`,
+    `Intent: ${intake.hedgeIntent}`,
+    `Horizon: ${intake.timeHorizon}`,
+    `Execute preference: ${intake.executePreference}`,
+    `Warnings: ${intake.warnings.length > 0 ? intake.warnings.join(" | ") : "none"}`,
+  ];
 }
 
 function policyLines(record: RunRecord): string[] {
@@ -1019,6 +1166,7 @@ function nextSafeAction(record: RunRecord): string[] {
   if (record.executions.length > 0) {
     return [
       `Replay: node dist/bin/trademesh.js replay ${record.id}`,
+      `Export: node dist/bin/trademesh.js export ${record.id}`,
       `Retry: node dist/bin/trademesh.js retry ${record.id}`,
     ];
   }
@@ -1038,12 +1186,14 @@ function formatPlanSummary(record: RunRecord): string {
       ...(record.routeSummary?.reasons.length ? record.routeSummary.reasons : ["No route reasoning captured."]),
     ]),
     block("Capabilities Detected", capabilityLines(record)),
+    block("Goal Interpretation", goalIntakeLines(record)),
     block("Portfolio + Market Summary", [
       ...traceFacts(record, "portfolio-xray"),
       ...traceFacts(record, "market-scan"),
       ...traceFacts(record, "trade-thesis"),
     ]),
     block("Proposal Ranking", proposalLines(record)),
+    block("Actionability Summary", actionabilityLines(record)),
     block("Policy Preview", policyLines(record)),
     block("Next Safe Action", nextSafeAction(record)),
   ].join("\n");
@@ -1069,6 +1219,7 @@ function formatApplySummary(record: RunRecord): string {
     ]),
     block("Replay Pointer", [
       `Replay: node dist/bin/trademesh.js replay ${record.id}`,
+      `Export: node dist/bin/trademesh.js export ${record.id}`,
       `Runs list: node dist/bin/trademesh.js runs list`,
     ]),
   ].join("\n");
@@ -1094,11 +1245,12 @@ export async function listRuns(): Promise<{ runs: RunListSummary[]; summary: str
   const summary = [
     "TradeMesh Runs",
     table(
-      ["Updated", "Plane", "Status", "Route", "Proposal", "Goal"],
+      ["Updated", "Plane", "Status", "Exported", "Route", "Proposal", "Goal"],
       runs.map((run) => [
         run.updatedAt || run.createdAt || "n/a",
         run.plane,
         run.status,
+        run.exported ? "yes" : "no",
         truncate(run.route.join(" -> "), 32),
         run.selectedProposal ?? "n/a",
         truncate(run.goal, 44),
@@ -1192,6 +1344,7 @@ export async function runDemo(goal: string, options: DemoOptions): Promise<DemoS
   const graph = await describeSkillGraph();
   const planned = await createPlan(goal, {
     plane: options.plane,
+    goalOverrides: options.goalOverrides,
   });
   const applied = await applyRun(planned.id, {
     plane: options.plane,
@@ -1222,6 +1375,107 @@ export async function runDemo(goal: string, options: DemoOptions): Promise<DemoS
   };
 }
 
+function markdownSection(title: string, lines: string[]): string {
+  return [`## ${title}`, ...lines, ""].join("\n");
+}
+
+function exportBundlePayload(record: RunRecord, artifacts: ArtifactStore): Record<string, unknown> {
+  const goalIntake = goalIntakeFromArtifacts(artifacts) ?? traceGoalIntake(record);
+  const latestExecution = record.executions.at(-1) ?? null;
+  return {
+    runId: record.id,
+    goal: record.goal,
+    plane: record.plane,
+    status: record.status,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+    goalIntake,
+    capabilitySnapshot: record.capabilitySnapshot,
+    routeSummary: record.routeSummary ?? null,
+    proposalTable: record.proposals,
+    selectedProposal: record.selectedProposal ?? preferredProposalName(record.proposals) ?? null,
+    policyDecision: record.policyDecision ?? null,
+    executionReceipts: record.executions,
+    latestExecution,
+    errors: record.errors,
+    notes: record.notes,
+    nextActions: nextSafeAction(record),
+  };
+}
+
+function exportReport(record: RunRecord, artifacts: ArtifactStore): string {
+  const goalIntake = goalIntakeFromArtifacts(artifacts) ?? traceGoalIntake(record);
+  const latestExecution = record.executions.at(-1);
+  const selectedProposal = record.selectedProposal ?? preferredProposalName(record.proposals);
+  return [
+    `# TradeMesh Export Report`,
+    "",
+    markdownSection("Summary", [
+      `Run: ${record.id}`,
+      `Goal: ${record.goal}`,
+      `Plane: ${record.plane}`,
+      `Status: ${record.status}`,
+      `Selected proposal: ${selectedProposal ?? "n/a"}`,
+    ]),
+    markdownSection("Goal Interpretation", goalIntake
+      ? [
+          `Symbols: ${goalIntake.symbols.join(", ")}`,
+          `Drawdown target: ${formatDrawdownPct(goalIntake.targetDrawdownPct)}`,
+          `Intent: ${goalIntake.hedgeIntent}`,
+          `Horizon: ${goalIntake.timeHorizon}`,
+          `Execute preference: ${goalIntake.executePreference}`,
+          `Warnings: ${goalIntake.warnings.length > 0 ? goalIntake.warnings.join(" | ") : "none"}`,
+        ]
+      : ["Goal intake was not captured."]),
+    markdownSection("Environment Readiness", capabilityLines(record)),
+    markdownSection("Proposal Ranking", proposalLines(record)),
+    markdownSection("Selected Plan", [
+      `Proposal: ${selectedProposal ?? "n/a"}`,
+      ...actionabilityLines(record),
+    ]),
+    markdownSection("Policy Verdict", policyLines(record)),
+    markdownSection(
+      "Command Preview / Execution Receipt",
+      latestExecution ? latestExecution.results.map(formatExecutionResult) : ["No execution receipt recorded."],
+    ),
+    markdownSection(
+      "Evidence",
+      Array.isArray(latestTraceEntry(record.trace, "replay")?.metadata?.evidence)
+        ? latestTraceEntry(record.trace, "replay")?.metadata?.evidence as string[]
+        : ["Replay evidence has not been materialized yet."],
+    ),
+    markdownSection("Next Safe Action", nextSafeAction(record)),
+  ].join("\n");
+}
+
+export async function exportRun(runId: string, options: ExportOptions = {}): Promise<ExportResult> {
+  const record = await loadNormalizedRun(runId);
+  const artifacts = createArtifactStore(await loadArtifactSnapshot(runId), {});
+  const paths = exportPaths(runId, options.outputPath);
+  await fs.mkdir(paths.outputDir, { recursive: true });
+
+  const bundle = exportBundlePayload(record, artifacts);
+  const report = exportReport(record, artifacts);
+
+  await fs.writeFile(paths.bundlePath, `${JSON.stringify(bundle, null, 2)}\n`, "utf8");
+  await fs.writeFile(paths.reportPath, `${report}\n`, "utf8");
+
+  return {
+    runId,
+    outputDir: paths.outputDir,
+    bundlePath: paths.bundlePath,
+    reportPath: paths.reportPath,
+    summary: [
+      "TradeMesh Export",
+      `Run: ${runId}`,
+      `Output dir: ${paths.outputDir}`,
+      `Bundle: ${paths.bundlePath}`,
+      `Report: ${paths.reportPath}`,
+      `Preferred artifact: ${options.format === "json" ? paths.bundlePath : paths.reportPath}`,
+    ].join("\n"),
+  };
+}
+
 export function formatRunSummary(record: RunRecord): string {
   return record.executions.length > 0 ? formatApplySummary(record) : formatPlanSummary(record);
 }
@@ -1233,6 +1487,9 @@ export function formatReplay(record: RunRecord): string {
   const evidenceRaw = Array.isArray(replayEntry?.metadata?.evidence) ? replayEntry.metadata?.evidence as string[] : [];
   const latestExecution = record.executions.at(-1);
   const selectedProposal = record.selectedProposal ?? preferredProposalName(record.proposals);
+  const exportHint = hasExportBundle(record.id)
+    ? `Latest export: ${exportPaths(record.id).outputDir}`
+    : `Export: node dist/bin/trademesh.js export ${record.id}`;
 
   return [
     ...header("Replay Timeline", record),
@@ -1247,5 +1504,6 @@ export function formatReplay(record: RunRecord): string {
     block("Policy Decision", policyLines(record)),
     block("Execution Receipt", latestExecution ? latestExecution.results.map(formatExecutionResult) : ["No execution receipt recorded."]),
     ...(evidenceRaw.length > 0 ? [block("Evidence", evidenceRaw)] : []),
+    block("Export Pointer", [exportHint]),
   ].join("\n");
 }

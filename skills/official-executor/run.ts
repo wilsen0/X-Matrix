@@ -1,6 +1,7 @@
 import { createCommandIntent } from "../../runtime/okx.js";
 import { putArtifact } from "../../runtime/artifacts.js";
 import type {
+  CommandPreviewEntry,
   OkxCommandIntent,
   OptionOrderPlanStep,
   OptionPlaceOrderParams,
@@ -110,21 +111,47 @@ function buildOptionPlaceOrderCommand(params: OptionPlaceOrderParams, plane: Ski
   ].join(" ");
 }
 
-function buildReadIntents(symbols: string[], plane: SkillContext["plane"]): OkxCommandIntent[] {
+function previewEntry(intent: OkxCommandIntent): CommandPreviewEntry {
+  return {
+    intentId: intent.intentId,
+    stepIndex: intent.stepIndex,
+    module: intent.module,
+    requiresWrite: intent.requiresWrite,
+    safeToRetry: intent.safeToRetry,
+    reason: intent.reason,
+    command: intent.command,
+  };
+}
+
+function buildReadIntents(
+  symbols: string[],
+  plane: SkillContext["plane"],
+  runId: string,
+  proposalName: string,
+): OkxCommandIntent[] {
   const flags = buildPlaneFlagArgs(plane).join(" ");
   return [
     createCommandIntent(`okx account balance ${flags}`, {
+      intentId: `${runId}:${proposalName}:read-balance`,
+      stepIndex: 0,
+      safeToRetry: true,
       module: "account",
       requiresWrite: false,
       reason: "Refresh account balance before materializing execution.",
     }),
     createCommandIntent(`okx account positions ${flags}`, {
+      intentId: `${runId}:${proposalName}:read-positions`,
+      stepIndex: 1,
+      safeToRetry: true,
       module: "account",
       requiresWrite: false,
       reason: "Refresh account positions before materializing execution.",
     }),
-    ...symbols.map((symbol) =>
+    ...symbols.map((symbol, index) =>
       createCommandIntent(`okx market ticker ${symbol}-USDT ${flags}`, {
+        intentId: `${runId}:${proposalName}:read-ticker:${symbol.toLowerCase()}`,
+        stepIndex: index + 2,
+        safeToRetry: true,
         module: "market",
         requiresWrite: false,
         reason: `Refresh ${symbol} price before materializing execution.`,
@@ -190,9 +217,18 @@ function materializeProposal(proposal: SkillProposal, thesis: TradeThesis): Orde
   });
 }
 
-function writeIntentForStep(step: OrderPlanStep, plane: SkillContext["plane"]): OkxCommandIntent {
+function writeIntentForStep(
+  step: OrderPlanStep,
+  plane: SkillContext["plane"],
+  runId: string,
+  proposalName: string,
+  stepIndex: number,
+): OkxCommandIntent {
   if (step.kind === "swap-place-order") {
     return createCommandIntent(buildSwapPlaceOrderCommand(step.params, plane), {
+      intentId: `${runId}:${proposalName}:write:${stepIndex}`,
+      stepIndex,
+      safeToRetry: false,
       module: "swap",
       requiresWrite: true,
       reason: step.purpose,
@@ -200,6 +236,9 @@ function writeIntentForStep(step: OrderPlanStep, plane: SkillContext["plane"]): 
   }
 
   return createCommandIntent(buildOptionPlaceOrderCommand(step.params, plane), {
+    intentId: `${runId}:${proposalName}:write:${stepIndex}`,
+    stepIndex,
+    safeToRetry: false,
     module: "option",
     requiresWrite: true,
     reason: step.purpose,
@@ -235,11 +274,18 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
   const proposal = selectProposal(proposals, context.runtimeInput, decision);
   const orderPlan = materializeProposal(proposal, thesis);
   const symbols = symbolSet(orderPlan);
-  const intents = [
-    ...buildReadIntents(symbols, context.plane),
-    ...orderPlan.map((step) => writeIntentForStep(step, context.plane)),
-  ];
-  const preview = intents.map((intent) => intent.command);
+  const readIntents = buildReadIntents(symbols, context.plane, context.runId, proposal.name);
+  const writeIntents = orderPlan.map((step, index) =>
+    writeIntentForStep(
+      step,
+      context.plane,
+      context.runId,
+      proposal.name,
+      readIntents.length + index,
+    ),
+  );
+  const intents = [...readIntents, ...writeIntents];
+  const preview = intents.map((intent) => previewEntry(intent));
   const counts = countByKind(orderPlan);
 
   putArtifact(context.artifacts, {

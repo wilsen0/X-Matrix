@@ -21,9 +21,10 @@ TradeMesh is optimized for hackathon judging and operator trust:
 
 - `doctor` shows whether the local mesh is ready to plan, dry-run, or execute on OKX demo
 - `skills inspect` and `skills graph` expose the mesh topology from skill manifests
-- `plan` produces ranked proposals plus a policy preview
+- `plan` produces ranked proposals, actionability labels, and a policy preview
 - `apply` keeps dry-run first and routes every write through `official-executor`
 - `replay` reconstructs the route, evidence, policy, and execution receipt
+- `export` materializes a run report plus a machine-readable evidence bundle
 
 ## Quick Start
 
@@ -33,9 +34,10 @@ npm run build
 node dist/bin/trademesh.js doctor
 node dist/bin/trademesh.js skills ls
 node dist/bin/trademesh.js skills graph
-node dist/bin/trademesh.js plan "hedge my BTC drawdown with demo first" --plane demo
+node dist/bin/trademesh.js plan "hedge my BTC drawdown with demo first" --plane demo --symbol BTC --max-drawdown 4 --intent protect-downside --horizon swing
 node dist/bin/trademesh.js apply <run-id> --plane demo --proposal protective-put --approve
 node dist/bin/trademesh.js replay <run-id>
+node dist/bin/trademesh.js export <run-id>
 node dist/bin/trademesh.js demo "hedge my BTC drawdown with demo first" --plane demo
 pnpm test
 ```
@@ -43,15 +45,26 @@ pnpm test
 ## Core Commands
 
 - `trademesh doctor`
-- `trademesh demo "<goal>" [--plane research|demo|live] [--execute] [--json]`
+- `trademesh demo "<goal>" [--plane research|demo|live] [--execute] [--symbol <CSV>] [--max-drawdown <number>] [--intent protect-downside|reduce-beta|de-risk] [--horizon intraday|swing|position] [--json]`
 - `trademesh skills ls|list`
 - `trademesh skills inspect <name> [--json]`
 - `trademesh skills graph [--json]`
 - `trademesh runs list`
-- `trademesh plan "<goal>" [--plane research|demo|live] [--profile demo|live] [--json]`
+- `trademesh plan "<goal>" [--plane research|demo|live] [--profile demo|live] [--symbol <CSV>] [--max-drawdown <number>] [--intent protect-downside|reduce-beta|de-risk] [--horizon intraday|swing|position] [--json]`
 - `trademesh apply <run-id> [--plane demo|live] [--profile demo|live] [--proposal <name>] [--approve] [--execute] [--json]`
 - `trademesh replay <run-id> [--skill <name>] [--json]`
 - `trademesh retry <run-id> [--json]`
+- `trademesh export <run-id> [--format md|json] [--output <path>] [--json]`
+
+## Structured Goal Intake
+
+TradeMesh now keeps a canonical `goal.intake` artifact for the flagship route.
+
+- `plan` and `demo` can override the parsed goal with `--symbol`, `--max-drawdown`, `--intent`, and `--horizon`
+- portfolio sensing persists the normalized goal interpretation before any market or hedge planning
+- `plan`, `apply`, `replay`, and `export` all reference the same interpreted symbols, drawdown target, intent, and horizon
+
+This makes planning more deterministic than the earlier prompt-only heuristics.
 
 ## Safety Model
 
@@ -60,6 +73,14 @@ pnpm test
 - `demo` defaults to preview-first, and `--execute` is explicit
 - `live` still requires `--approve`
 - every plan/apply/replay persists an auditable run record
+- write intents are never auto-retried; only safe read intents may be retried
+
+## Actionability Model
+
+- every proposal now carries `executionReadiness`, `actionable`, and `capabilityGaps`
+- `policy-gate` re-evaluates every ranked proposal, not only the selected one
+- the recommended proposal must come from the proposals that are currently actionable for dry-run or better
+- `doctor` now separates `plan`, `apply`, and `execute` readiness
 
 ## Demo Script
 
@@ -68,9 +89,10 @@ Use this sequence for a live demo:
 ```bash
 node dist/bin/trademesh.js doctor
 node dist/bin/trademesh.js skills graph
-node dist/bin/trademesh.js plan "hedge my BTC drawdown with demo first" --plane demo
+node dist/bin/trademesh.js plan "hedge my BTC drawdown with demo first" --plane demo --symbol BTC --max-drawdown 4 --intent protect-downside --horizon swing
 node dist/bin/trademesh.js apply <run-id> --plane demo --proposal protective-put --approve
 node dist/bin/trademesh.js replay <run-id>
+node dist/bin/trademesh.js export <run-id>
 ```
 
 If local OKX demo credentials are configured and you want the final proof point:
@@ -86,7 +108,7 @@ Three layers define the system:
 - Execution Kernel
   - `okx ... --json`
 - Skill Runtime
-  - registry, graph runtime, artifact store, policy, trace persistence, CLI presentation
+  - registry, graph runtime, artifact store, canonical goal intake, policy, trace persistence, export bundle, CLI presentation
 - Skill Packs
   - `skills/*/SKILL.md` + optional `run.ts`
 

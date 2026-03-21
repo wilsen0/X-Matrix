@@ -5,6 +5,7 @@ import {
   applyRun,
   describeSkillGraph,
   createPlan,
+  exportRun,
   formatReplay,
   formatRunSummary,
   inspectSkill,
@@ -15,7 +16,13 @@ import {
   retryRun,
 } from "../runtime/executor.js";
 import { runDoctor } from "../runtime/doctor.js";
-import type { ExecutionPlane } from "../runtime/types.js";
+import type {
+  ExecutionPlane,
+  GoalExecutePreference,
+  GoalHedgeIntent,
+  GoalIntakeOverrides,
+  GoalTimeHorizon,
+} from "../runtime/types.js";
 
 type FlagMap = Record<string, string | boolean>;
 
@@ -58,14 +65,15 @@ function parseArgs(args: string[]): ParsedArgs {
 function printHelp(): void {
   console.log(`Usage:
   trademesh doctor
-  trademesh demo "<goal>" [--plane research|demo|live] [--execute] [--json]
+  trademesh demo "<goal>" [--plane research|demo|live] [--execute] [--symbol BTC,ETH] [--max-drawdown 4] [--intent protect-downside|reduce-beta|de-risk] [--horizon intraday|swing|position] [--json]
   trademesh skills ls|list
   trademesh skills inspect <name> [--json]
   trademesh skills graph [--json]
   trademesh runs list
-  trademesh plan "<goal>" [--plane research|demo|live] [--profile demo|live] [--json]
+  trademesh plan "<goal>" [--plane research|demo|live] [--profile demo|live] [--symbol BTC,ETH] [--max-drawdown 4] [--intent protect-downside|reduce-beta|de-risk] [--horizon intraday|swing|position] [--json]
   trademesh replay <run-id> [--skill <name>] [--json]
   trademesh retry <run-id> [--json]
+  trademesh export <run-id> [--format md|json] [--output <path>] [--json]
   trademesh apply <run-id> [--plane demo|live] [--profile demo|live] [--proposal <name>] [--approve] [--execute] [--json]`);
 }
 
@@ -112,6 +120,83 @@ function readExplicitApplyPlane(
   return undefined;
 }
 
+function parseSymbolList(value: string | boolean | undefined): string[] | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const symbols = value
+    .split(",")
+    .map((entry) => entry.trim().toUpperCase())
+    .filter(Boolean);
+  return symbols.length > 0 ? [...new Set(symbols)] : undefined;
+}
+
+function parseDrawdownOverride(value: string | boolean | undefined): number | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const normalized = value.replace(/%/g, "").trim();
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function parseIntentOverride(
+  value: string | boolean | undefined,
+): Exclude<GoalHedgeIntent, "unspecified"> | undefined {
+  if (value === "protect-downside") {
+    return "protect_downside";
+  }
+  if (value === "reduce-beta") {
+    return "reduce_beta";
+  }
+  if (value === "de-risk") {
+    return "de_risk";
+  }
+  return undefined;
+}
+
+function parseHorizonOverride(
+  value: string | boolean | undefined,
+): Exclude<GoalTimeHorizon, "unspecified"> | undefined {
+  if (value === "intraday" || value === "swing" || value === "position") {
+    return value;
+  }
+  return undefined;
+}
+
+function goalOverridesFromFlags(
+  flags: FlagMap,
+  executePreference: GoalExecutePreference,
+): GoalIntakeOverrides | undefined {
+  const overrides: GoalIntakeOverrides = {
+    executePreference,
+  };
+
+  const symbols = parseSymbolList(flags.symbol);
+  if (symbols) {
+    overrides.symbols = symbols;
+  }
+
+  const targetDrawdownPct = parseDrawdownOverride(flags["max-drawdown"]);
+  if (targetDrawdownPct !== undefined) {
+    overrides.targetDrawdownPct = targetDrawdownPct;
+  }
+
+  const hedgeIntent = parseIntentOverride(flags.intent);
+  if (hedgeIntent) {
+    overrides.hedgeIntent = hedgeIntent;
+  }
+
+  const timeHorizon = parseHorizonOverride(flags.horizon);
+  if (timeHorizon) {
+    overrides.timeHorizon = timeHorizon;
+  }
+
+  return Object.keys(overrides).length > 0 ? overrides : undefined;
+}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const command = args[0];
@@ -139,6 +224,10 @@ async function main(): Promise<void> {
     const session = await runDemo(goal, {
       plane: resolvePlanPlane(goal, parsed.flags.plane, parsed.flags.profile),
       execute: parsed.flags.execute === true,
+      goalOverrides: goalOverridesFromFlags(
+        parsed.flags,
+        parsed.flags.execute === true ? "execute" : "dry_run",
+      ),
     });
 
     console.log(jsonMode ? JSON.stringify(session, null, 2) : session.summary);
@@ -185,6 +274,7 @@ async function main(): Promise<void> {
 
     const record = await createPlan(goal, {
       plane: resolvePlanPlane(goal, parsed.flags.plane, parsed.flags.profile),
+      goalOverrides: goalOverridesFromFlags(parsed.flags, "plan_only"),
     });
 
     console.log(jsonMode ? JSON.stringify(record, null, 2) : formatRunSummary(record));
@@ -237,6 +327,21 @@ async function main(): Promise<void> {
 
     const record = await retryRun(runId);
     console.log(jsonMode ? JSON.stringify(record, null, 2) : formatRunSummary(record));
+    return;
+  }
+
+  if (command === "export") {
+    const parsed = parseArgs(args.slice(1));
+    const runId = parsed.positionals[0];
+    if (!runId) {
+      throw new Error("Missing run id. Example: trademesh export run_20260319_001");
+    }
+
+    const exported = await exportRun(runId, {
+      format: parsed.flags.format === "json" ? "json" : "md",
+      outputPath: typeof parsed.flags.output === "string" ? parsed.flags.output : undefined,
+    });
+    console.log(jsonMode ? JSON.stringify(exported, null, 2) : exported.summary);
     return;
   }
 

@@ -1,4 +1,5 @@
 import { putArtifact } from "../../runtime/artifacts.js";
+import { formatDrawdownPct, resolveGoalIntake } from "../../runtime/goal-intake.js";
 import { readAccountSnapshot } from "../../runtime/okx.js";
 import type {
   PortfolioRiskProfile,
@@ -7,42 +8,7 @@ import type {
   SkillOutput,
 } from "../../runtime/types.js";
 
-const DEFAULT_SYMBOLS = ["BTC", "ETH", "SOL"];
-const IGNORED_SYMBOLS = new Set([
-  "CLI",
-  "OKX",
-  "JSON",
-  "DEMO",
-  "LIVE",
-  "HEDGE",
-  "DRAWDOWN",
-  "PROTECT",
-  "DOWNSIDE",
-  "FIRST",
-  "WITH",
-  "RISK",
-  "PLAN",
-  "APPLY",
-  "EXECUTE",
-  "ORDER",
-  "MY",
-  "THE",
-  "AND",
-]);
-
 type JsonRecord = Record<string, unknown>;
-
-function extractSymbols(goal: string): string[] {
-  const matches = goal.toUpperCase().match(/\b[A-Z]{2,6}\b/g) ?? [];
-  const filtered = matches.filter((symbol) => !IGNORED_SYMBOLS.has(symbol));
-  return filtered.length > 0 ? [...new Set(filtered)] : DEFAULT_SYMBOLS;
-}
-
-function extractDrawdownTarget(goal: string): string {
-  const matches = [...goal.matchAll(/(\d+(\.\d+)?)\s*%/g)];
-  const finalMatch = matches.at(-1);
-  return finalMatch ? `${finalMatch[1]}%` : "4%";
-}
 
 function describePayload(label: string, payload: unknown): string {
   if (Array.isArray(payload)) {
@@ -333,10 +299,16 @@ function buildRiskProfile(
 }
 
 export default async function run(context: SkillContext): Promise<SkillOutput> {
-  const symbols = extractSymbols(context.goal);
-  const drawdownTarget = extractDrawdownTarget(context.goal);
   const accountSnapshot = readAccountSnapshot(context.plane);
   const riskProfile = buildRiskProfile(accountSnapshot);
+  const goalIntake = resolveGoalIntake({
+    goal: context.goal,
+    plane: context.plane,
+    runtimeInput: context.runtimeInput,
+    riskProfile,
+  });
+  const symbols = goalIntake.symbols;
+  const drawdownTarget = formatDrawdownPct(goalIntake.targetDrawdownPct);
   const availableUsd = extractAvailableUsd(accountSnapshot.balance);
   const accountEquity = Math.max(extractAccountEquity(accountSnapshot.balance), availableUsd ?? 0);
   const portfolioSnapshot: PortfolioSnapshot = {
@@ -354,6 +326,12 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
   };
 
   putArtifact(context.artifacts, {
+    key: "goal.intake",
+    version: context.manifest.artifactVersion,
+    producer: context.manifest.name,
+    data: goalIntake,
+  });
+  putArtifact(context.artifacts, {
     key: "portfolio.snapshot",
     version: context.manifest.artifactVersion,
     producer: context.manifest.name,
@@ -369,7 +347,11 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
   const facts = [
     `Detected symbols: ${symbols.join(", ")}`,
     `Target drawdown cap interpreted as ${drawdownTarget}`,
+    `Goal intent: ${goalIntake.hedgeIntent} on ${goalIntake.timeHorizon} horizon (${goalIntake.executePreference}).`,
   ];
+  for (const warning of goalIntake.warnings) {
+    facts.push(`Goal intake warning: ${warning}`);
+  }
 
   if (accountSnapshot.source === "okx-cli") {
     if (accountSnapshot.balance !== undefined) {
@@ -447,6 +429,7 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
     constraints: {
       selectedSymbols: symbols,
       drawdownTarget,
+      goalIntake,
       requiredModules: ["account"],
       portfolioSource: accountSnapshot.source,
       portfolioRiskProfile: riskProfile,
@@ -468,13 +451,14 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
     },
     handoff: "market-scan",
     handoffReason: "Portfolio artifacts are ready for market sensing.",
-    producedArtifacts: ["portfolio.snapshot", "portfolio.risk-profile"],
+    producedArtifacts: ["goal.intake", "portfolio.snapshot", "portfolio.risk-profile"],
     consumedArtifacts: [],
     ruleRefs: [],
     doctrineRefs: [],
     metadata: {
       symbols,
       drawdownTarget,
+      goalIntake,
       accountSource: accountSnapshot.source,
       accountCommands: accountSnapshot.commands,
       accountErrors: accountSnapshot.errors,

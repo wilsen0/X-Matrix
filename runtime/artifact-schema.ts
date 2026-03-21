@@ -1,6 +1,7 @@
 import type { ArtifactKey, ArtifactReference, SkillArtifact } from "./types.js";
 
 const CURRENT_ARTIFACT_VERSIONS: Record<ArtifactKey, number> = {
+  "goal.intake": 2,
   "portfolio.snapshot": 2,
   "portfolio.risk-profile": 2,
   "market.snapshot": 2,

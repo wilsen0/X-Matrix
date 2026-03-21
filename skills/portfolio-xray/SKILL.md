@@ -10,7 +10,7 @@ always_on: true
 triggers: [portfolio, risk, hedge, drawdown, 回撤, 对冲, 风险]
 entrypoint: ./run.js
 consumes: []
-produces: [portfolio.snapshot, portfolio.risk-profile]
+produces: [goal.intake, portfolio.snapshot, portfolio.risk-profile]
 preferred_handoffs: [market-scan]
 repeatable: false
 artifact_version: 2

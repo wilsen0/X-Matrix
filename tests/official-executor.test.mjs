@@ -92,15 +92,20 @@ test("official-executor materializes protective-put option place-order command",
 
     const preview = Array.isArray(output.metadata?.commandPreview) ? output.metadata.commandPreview : [];
     const optionCommands = preview.filter(
-      (command) => typeof command === "string" && command.startsWith("okx option place-order"),
+      (entry) =>
+        entry &&
+        typeof entry === "object" &&
+        typeof entry.command === "string" &&
+        entry.command.startsWith("okx option place-order"),
     );
 
     assert.equal(output.skill, "official-executor");
     assert.equal(output.stage, "executor");
     assert.ok(optionCommands.length >= 1);
-    assert.ok(optionCommands[0].includes("--side buy"));
-    assert.ok(optionCommands[0].includes("--sz 1"));
-    assert.ok(optionCommands[0].includes("--px"));
+    assert.ok(optionCommands[0].command.includes("--side buy"));
+    assert.ok(optionCommands[0].command.includes("--sz 1"));
+    assert.ok(optionCommands[0].command.includes("--px"));
+    assert.equal(optionCommands[0].safeToRetry, false);
     assert.equal(output.constraints.optionWriteIntentCount, 1);
   });
 });

@@ -1,6 +1,7 @@
 import { putArtifact } from "../../runtime/artifacts.js";
 import { loadDoctrineCards, loadRuleCards } from "../../runtime/rules-loader.js";
 import type {
+  GoalIntake,
   MarketRegime,
   PortfolioRiskProfile,
   PortfolioSnapshot,
@@ -68,6 +69,7 @@ function derivePreferredStrategies(bias: TradeThesis["hedgeBias"], regime: Marke
 }
 
 export default async function run(context: SkillContext): Promise<SkillOutput> {
+  const goalIntake = context.artifacts.get<GoalIntake>("goal.intake")?.data;
   const portfolioSnapshot = context.artifacts.require<PortfolioSnapshot>("portfolio.snapshot").data;
   const profile = context.artifacts.require<PortfolioRiskProfile>("portfolio.risk-profile").data;
   const regime = context.artifacts.require<MarketRegime>("market.regime").data;
@@ -139,6 +141,9 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
     goal: context.goal,
     summary: "Synthesize a single canonical trade thesis so downstream skills stop re-deriving local heuristics.",
     facts: [
+      ...(goalIntake
+        ? [`Goal intake: symbols=${goalIntake.symbols.join(", ")} intent=${goalIntake.hedgeIntent} horizon=${goalIntake.timeHorizon}.`]
+        : []),
       `Thesis bias: ${hedgeBias}.`,
       `Discipline state: ${disciplineState}.`,
       `Risk budget: single=${riskBudget.maxSingleOrderUsd.toFixed(0)} premium=${riskBudget.maxPremiumSpendUsd.toFixed(0)} margin=${riskBudget.maxMarginUseUsd.toFixed(0)}.`,
@@ -170,6 +175,7 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
     doctrineRefs,
     metadata: {
       thesis,
+      goalIntake: goalIntake ?? null,
     },
     timestamp: new Date().toISOString(),
   };

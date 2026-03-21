@@ -9,6 +9,7 @@ export interface ProjectPaths {
   runsRoot: string;
   meshRoot: string;
   meshRunsRoot: string;
+  meshExportsRoot: string;
   profilesRoot: string;
 }
 
@@ -52,6 +53,7 @@ export function getProjectPaths(): ProjectPaths {
     runsRoot: join(projectRoot, "runs"),
     meshRoot,
     meshRunsRoot: join(meshRoot, "runs"),
+    meshExportsRoot: join(meshRoot, "exports"),
     profilesRoot,
   };
 }

@@ -9,6 +9,7 @@ import { currentArtifactVersion } from "./artifact-schema.js";
 type JsonRecord = Record<string, unknown>;
 
 const ARTIFACT_KEYS: ArtifactKey[] = [
+  "goal.intake",
   "portfolio.snapshot",
   "portfolio.risk-profile",
   "market.snapshot",
@@ -123,6 +124,22 @@ export function validateArtifactData(key: ArtifactKey, data: unknown): void {
 
   const record = asObject(data);
   invariant(record, `Artifact '${key}' must be an object.`);
+
+  if (key === "goal.intake") {
+    if ("rawGoal" in record) {
+      invariant(hasString(record.rawGoal), `Artifact '${key}.rawGoal' must be a string.`);
+    }
+    if ("symbols" in record) {
+      invariant(Array.isArray(record.symbols), `Artifact '${key}.symbols' must be an array.`);
+    }
+    if ("executePreference" in record) {
+      invariant(
+        ["plan_only", "dry_run", "execute"].includes(String(record.executePreference)),
+        `Artifact '${key}.executePreference' is invalid.`,
+      );
+    }
+    return;
+  }
 
   if (key === "portfolio.snapshot") {
     if ("source" in record) {

@@ -13,6 +13,7 @@ export type DoctrineId =
   | "vol-hedging"
   | "discipline";
 export type ArtifactKey =
+  | "goal.intake"
   | "portfolio.snapshot"
   | "portfolio.risk-profile"
   | "market.snapshot"
@@ -32,11 +33,46 @@ export type RunStatus =
   | "executed"
   | "failed"
   | "previewed";
+export type GoalHedgeIntent = "protect_downside" | "reduce_beta" | "de_risk" | "unspecified";
+export type GoalTimeHorizon = "intraday" | "swing" | "position" | "unspecified";
+export type GoalExecutePreference = "plan_only" | "dry_run" | "execute";
+export type GoalValueSource = "cli_flag" | "goal_parse" | "portfolio_inference" | "default";
+export type ProposalExecutionReadiness =
+  | "ready_for_dry_run"
+  | "ready_for_demo_execute"
+  | "env_missing"
+  | "policy_blocked";
 
 export interface ArtifactReference {
   key: ArtifactKey;
   producer?: string;
   version?: number;
+}
+
+export interface GoalIntake {
+  rawGoal: string;
+  normalizedGoal: string;
+  symbols: string[];
+  targetDrawdownPct: number | null;
+  hedgeIntent: GoalHedgeIntent;
+  timeHorizon: GoalTimeHorizon;
+  planePreference: ExecutionPlane | "unspecified";
+  executePreference: GoalExecutePreference;
+  sources: {
+    symbols: GoalValueSource;
+    targetDrawdownPct: Exclude<GoalValueSource, "portfolio_inference">;
+    hedgeIntent: Exclude<GoalValueSource, "portfolio_inference">;
+    timeHorizon: Exclude<GoalValueSource, "portfolio_inference">;
+  };
+  warnings: string[];
+}
+
+export interface GoalIntakeOverrides {
+  symbols?: string[];
+  targetDrawdownPct?: number;
+  hedgeIntent?: Exclude<GoalHedgeIntent, "unspecified">;
+  timeHorizon?: Exclude<GoalTimeHorizon, "unspecified">;
+  executePreference?: GoalExecutePreference;
 }
 
 export interface ProposalEvidence {
@@ -80,11 +116,24 @@ export interface ProposalScoreBreakdown {
 }
 
 export interface OkxCommandIntent {
+  intentId: string;
+  stepIndex: number;
+  safeToRetry: boolean;
   command: string;
   args: string[];
   module: string;
   requiresWrite: boolean;
   reason: string;
+}
+
+export interface CommandPreviewEntry {
+  intentId: string;
+  stepIndex: number;
+  module: string;
+  requiresWrite: boolean;
+  safeToRetry: boolean;
+  reason: string;
+  command: string;
 }
 
 export interface SkillManifest {
@@ -113,6 +162,9 @@ export interface SkillProposal {
   estimatedCost?: string;
   estimatedProtection?: string;
   recommended?: boolean;
+  actionable?: boolean;
+  executionReadiness?: ProposalExecutionReadiness;
+  capabilityGaps?: PolicyCapabilityGap[];
   scoreBreakdown?: ProposalScoreBreakdown;
   rejectionReason?: string;
   riskTags?: string[];
@@ -243,6 +295,7 @@ export interface ExecutionResult {
   stderr: string;
   skipped: boolean;
   dryRun: boolean;
+  durationMs: number;
   attempt?: number;
   errorCategory?: ExecutionErrorCategory;
   retryScheduled?: boolean;

@@ -19,8 +19,11 @@ test("portfolio-xray outputs structured sensor snapshot with mocked OKX data", a
     assert.equal(output.stage, "sensor");
     assert.ok(output.facts.length > 0);
     assert.ok(Array.isArray(output.constraints.selectedSymbols));
+    assert.equal(output.metadata?.goalIntake?.symbols?.[0], "BTC");
+    assert.equal(output.metadata?.goalIntake?.executePreference, "plan_only");
     assert.equal(output.metadata?.accountSource, "okx-cli");
     assert.ok(sharedState.accountSnapshot);
+    assert.ok(sharedState.goalIntake);
     assert.ok(sharedState.portfolioRiskProfile);
   });
 });

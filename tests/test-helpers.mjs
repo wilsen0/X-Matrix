@@ -137,6 +137,7 @@ export async function cleanupRunArtifacts(runId) {
 
   await rm(join(process.cwd(), "runs", `${runId}.json`), { force: true });
   await rm(join(process.cwd(), ".trademesh", "runs", runId), { recursive: true, force: true });
+  await rm(join(process.cwd(), ".trademesh", "exports", runId), { recursive: true, force: true });
 }
 
 export function createContext({

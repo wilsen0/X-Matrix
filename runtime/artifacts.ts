@@ -2,6 +2,7 @@ import type {
   ArtifactKey,
   ArtifactSnapshot,
   ArtifactStore,
+  GoalIntake,
   PortfolioSnapshot,
   SkillArtifact,
 } from "./types.js";
@@ -9,6 +10,7 @@ import { validateArtifactEnvelope, validateArtifactSnapshot } from "./contracts.
 import { currentArtifactVersion } from "./artifact-schema.js";
 
 const ARTIFACT_TO_SHARED_STATE: Partial<Record<ArtifactKey, string[]>> = {
+  "goal.intake": ["goalIntake"],
   "portfolio.snapshot": ["portfolioSnapshot", "accountSnapshot", "symbols", "drawdownTarget", "portfolioSource"],
   "portfolio.risk-profile": ["portfolioRiskProfile"],
   "market.snapshot": ["marketSnapshot"],
@@ -37,6 +39,11 @@ function mirrorArtifactToSharedState(
 ): void {
   const aliases = ARTIFACT_TO_SHARED_STATE[key] ?? [];
   for (const alias of aliases) {
+    if (alias === "goalIntake" && key === "goal.intake") {
+      sharedState[alias] = data as GoalIntake;
+      continue;
+    }
+
     if (alias === "portfolioSource" && key === "portfolio.snapshot") {
       const snapshot = data as PortfolioSnapshot;
       sharedState[alias] = snapshot.source;

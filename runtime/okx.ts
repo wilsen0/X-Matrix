@@ -405,9 +405,19 @@ export function readMarketSnapshot(instIds: string[], plane: ExecutionPlane): Ok
 
 export function createCommandIntent(
   command: string,
-  options: { module: string; requiresWrite: boolean; reason: string },
+  options: {
+    module: string;
+    requiresWrite: boolean;
+    reason: string;
+    intentId?: string;
+    stepIndex?: number;
+    safeToRetry?: boolean;
+  },
 ): OkxCommandIntent {
   return {
+    intentId: options.intentId ?? `${options.module}:${command}`,
+    stepIndex: options.stepIndex ?? 0,
+    safeToRetry: options.safeToRetry ?? !options.requiresWrite,
     command,
     args: tokenize(command),
     module: options.module,
@@ -426,6 +436,7 @@ export function executeIntent(intent: OkxCommandIntent, execute: boolean): Execu
       stderr: "",
       skipped: true,
       dryRun: true,
+      durationMs: 0,
     };
   }
 
@@ -439,14 +450,23 @@ export function executeIntent(intent: OkxCommandIntent, execute: boolean): Execu
       stderr: "Unable to parse command intent.",
       skipped: false,
       dryRun: false,
+      durationMs: 0,
     };
   }
 
-  const result = spawnSync(bin, args, { encoding: "utf8" });
+  const startedAt = Date.now();
+  const result = spawnSync(bin, args, {
+    encoding: "utf8",
+    timeout: intent.requiresWrite ? 25_000 : 15_000,
+  });
+  const durationMs = Date.now() - startedAt;
   const semanticError = result.status === 0
     ? detectOkxExecutionError(result.stdout ?? "", intent.requiresWrite)
     : null;
   const stderrParts = [result.stderr ?? ""];
+  if (result.error instanceof Error) {
+    stderrParts.push(result.error.message);
+  }
   if (semanticError) {
     stderrParts.push(semanticError);
   }
@@ -454,11 +474,12 @@ export function executeIntent(intent: OkxCommandIntent, execute: boolean): Execu
 
   return {
     intent,
-    ok: result.status === 0 && !semanticError,
+    ok: result.status === 0 && !semanticError && !result.error,
     exitCode: result.status,
     stdout: result.stdout ?? "",
     stderr,
     skipped: false,
     dryRun: false,
+    durationMs,
   };
 }

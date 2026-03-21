@@ -27,6 +27,9 @@ export interface DoctorReport {
   nodeVersion: string;
   skillCount: number;
   capabilitySnapshot: CapabilitySnapshot;
+  planReadiness: "ready" | "degraded" | "blocked";
+  applyReadiness: "ready" | "degraded" | "blocked";
+  executeReadiness: "ready" | "degraded" | "blocked";
   executionReadiness: ExecutionReadiness;
   missingSkills: string[];
   recommendations: string[];
@@ -92,10 +95,42 @@ function readinessLabel(readiness: ExecutionReadiness): string {
   return "cannot execute";
 }
 
+function phaseReadiness(
+  skillNames: string[],
+  capabilitySnapshot: CapabilitySnapshot,
+): Pick<DoctorReport, "planReadiness" | "applyReadiness" | "executeReadiness"> {
+  const installed = new Set(skillNames);
+  const missingPlanning = PLANNING_PACK.filter((name) => !installed.has(name));
+  const missingApply = APPLY_PACK.filter((name) => !installed.has(name));
+
+  const planReadiness: DoctorReport["planReadiness"] =
+    missingPlanning.length > 0 ? "blocked" : capabilitySnapshot.okxCliAvailable ? "ready" : "degraded";
+  const applyReadiness: DoctorReport["applyReadiness"] =
+    missingApply.length > 0 ? "blocked" : capabilitySnapshot.configExists ? "ready" : "degraded";
+  const executeReadiness: DoctorReport["executeReadiness"] =
+    missingApply.length > 0
+      ? "blocked"
+      : capabilitySnapshot.okxCliAvailable &&
+          capabilitySnapshot.configExists &&
+          capabilitySnapshot.demoProfileLikelyConfigured
+        ? "ready"
+        : "degraded";
+
+  return {
+    planReadiness,
+    applyReadiness,
+    executeReadiness,
+  };
+}
+
 export async function runDoctor(): Promise<DoctorReport> {
   const paths = getProjectPaths();
   const [skills, capabilitySnapshot] = await Promise.all([loadSkillRegistry(), inspectOkxEnvironment()]);
   const readiness = computeExecutionReadiness(
+    skills.map((skill) => skill.name),
+    capabilitySnapshot,
+  );
+  const phaseState = phaseReadiness(
     skills.map((skill) => skill.name),
     capabilitySnapshot,
   );
@@ -120,6 +155,9 @@ export async function runDoctor(): Promise<DoctorReport> {
     "",
     section("Runtime Readiness", [
       `Overall grade: ${capabilitySnapshot.readinessGrade}`,
+      `Plan readiness: ${phaseState.planReadiness}`,
+      `Apply readiness: ${phaseState.applyReadiness}`,
+      `Execute readiness: ${phaseState.executeReadiness}`,
       `Mesh state: ${readinessLabel(readiness.readiness)}`,
       `Executable plane recommendation: ${capabilitySnapshot.recommendedPlane}`,
       `Skills installed: ${skills.length}`,
@@ -150,6 +188,9 @@ export async function runDoctor(): Promise<DoctorReport> {
     nodeVersion: process.version,
     skillCount: skills.length,
     capabilitySnapshot,
+    planReadiness: phaseState.planReadiness,
+    applyReadiness: phaseState.applyReadiness,
+    executeReadiness: phaseState.executeReadiness,
     executionReadiness: readiness.readiness,
     missingSkills: readiness.missingSkills,
     recommendations,

@@ -51,6 +51,9 @@ function normalizeExecutionResults(raw: unknown): ExecutionResult[] {
 
       return {
         intent: {
+          intentId: toString(intent.intentId) ?? `${toString(intent.module)!}:${toString(intent.command)!}`,
+          stepIndex: typeof intent.stepIndex === "number" ? intent.stepIndex : 0,
+          safeToRetry: intent.safeToRetry === true,
           command: toString(intent.command)!,
           args: Array.isArray(intent.args)
             ? intent.args.map((item) => toString(item)).filter((item): item is string => Boolean(item))
@@ -65,6 +68,7 @@ function normalizeExecutionResults(raw: unknown): ExecutionResult[] {
         stderr: toString(record.stderr) ?? "",
         skipped: record.skipped === true,
         dryRun: record.dryRun === true,
+        durationMs: typeof record.durationMs === "number" ? record.durationMs : 0,
       } satisfies ExecutionResult;
     })
     .filter((entry): entry is ExecutionResult => Boolean(entry));

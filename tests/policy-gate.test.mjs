@@ -97,5 +97,7 @@ test("policy-gate validates proposal/account snapshot and returns guardrail outp
   assert.equal(output.stage, "guardrail");
   assert.equal(output.handoff, "official-executor");
   assert.ok(output.facts.some((fact) => fact.includes("Selected proposal")));
+  assert.ok(output.proposal[0].executionReadiness);
+  assert.equal(output.proposal[0].actionable, true);
   assert.ok(Array.isArray(output.permissions.allowedModules));
 });
