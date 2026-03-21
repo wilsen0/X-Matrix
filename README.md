@@ -15,6 +15,8 @@ The flagship pack is a hedge workflow:
 
 That flagship pack proves the runtime. It is not the whole product identity.
 
+For a single-document Chinese walkthrough of the product, runtime, safety model, and demo story, see [docs/PROJECT-INTRODUCTION.zh-CN.md](./docs/PROJECT-INTRODUCTION.zh-CN.md).
+
 ## Why this shape
 
 TradeMesh is optimized for hackathon judging and operator trust:
