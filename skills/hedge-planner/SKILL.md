@@ -14,6 +14,9 @@ produces: [planning.proposals]
 preferred_handoffs: [scenario-sim]
 repeatable: false
 artifact_version: 3
+contract_version: 1
+safety_class: read
+determinism: high
 standalone_command: "trademesh skills run hedge-planner \"<goal>\""
 standalone_route: [portfolio-xray, market-scan, trade-thesis, hedge-planner]
 standalone_inputs: [goal]

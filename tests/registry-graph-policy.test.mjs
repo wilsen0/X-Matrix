@@ -18,6 +18,9 @@ test("registry parses extended skill contract frontmatter", async () => {
   assert.deepEqual(thesis.standaloneRoute, ["portfolio-xray", "market-scan", "trade-thesis"]);
   assert.deepEqual(thesis.standaloneInputs, ["goal"]);
   assert.deepEqual(thesis.standaloneOutputs, ["trade.thesis"]);
+  assert.equal(thesis.contractVersion, 1);
+  assert.equal(thesis.safetyClass, "read");
+  assert.equal(thesis.determinism, "high");
 });
 
 test("graph runtime honors artifact dependencies and preferred handoffs", async () => {

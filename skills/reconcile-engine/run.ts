@@ -98,6 +98,14 @@ function reconcileWindowMinutes(context: SkillContext): number {
   return raw;
 }
 
+function attemptNumber(context: SkillContext): number {
+  const raw = toFiniteNumber(context.runtimeInput.attemptNumber);
+  if (raw === null || raw <= 0) {
+    return 1;
+  }
+  return Math.floor(raw);
+}
+
 async function matchByClientOrderRef(
   intent: OkxCommandIntent,
   plane: ExecutionPlane,
@@ -233,6 +241,7 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
 
   const source = reconcileSource(context);
   const windowMin = reconcileWindowMinutes(context);
+  const attempt = attemptNumber(context);
   const writeResults = execution.results.filter((result) => result.intent.requiresWrite);
   const items: ReconciliationItem[] = [];
 
@@ -296,12 +305,21 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
       : status === "ambiguous"
         ? ["Review ambiguous matches manually, then rerun reconcile."]
         : ["Inspect exchange records and rerun reconcile when evidence is available."];
+  const previousAttempts = context.artifacts.get<ReconciliationReport>("execution.reconciliation")?.data?.attempts ?? [];
+  const attempts = [...previousAttempts, {
+    attempt,
+    at: now(),
+    source,
+    windowMin,
+    status,
+  }];
 
   const report: ReconciliationReport = {
     runId: context.runId,
     reconciledAt: now(),
     status,
     items,
+    attempts,
     nextActions,
   };
 
@@ -322,6 +340,7 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
       `Window: ${windowMin} min.`,
       `Write intents: ${writeResults.length}.`,
       `Reconcile status: ${status}.`,
+      `Attempt: ${attempt}.`,
     ],
     constraints: {
       source,

@@ -14,6 +14,9 @@ produces: []
 preferred_handoffs: []
 repeatable: false
 artifact_version: 3
+contract_version: 1
+safety_class: read
+determinism: high
 standalone_command: "trademesh skills run replay \"<goal>\" --input <run-id>"
 standalone_route: [replay]
 standalone_inputs: [run-id]

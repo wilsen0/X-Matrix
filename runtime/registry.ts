@@ -2,7 +2,14 @@ import { existsSync, promises as fs } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { getProjectPaths } from "./paths.js";
-import type { ArtifactKey, SkillHandler, SkillManifest, SkillRole } from "./types.js";
+import type {
+  ArtifactKey,
+  SkillDeterminism,
+  SkillHandler,
+  SkillManifest,
+  SkillRole,
+  SkillSafetyClass,
+} from "./types.js";
 
 type FrontmatterValue = string | number | boolean | string[];
 
@@ -118,6 +125,20 @@ function normalizeManifest(path: string, fields: Record<string, FrontmatterValue
   const standaloneRoute = parseListValue(fields.standalone_route);
   const standaloneInputs = parseListValue(fields.standalone_inputs) as Array<"goal" | "run-id" | ArtifactKey>;
   const standaloneOutputs = parseListValue(fields.standalone_outputs) as ArtifactKey[];
+  const contractVersion =
+    typeof fields.contract_version === "number"
+      ? fields.contract_version
+      : typeof fields.contract_version === "string"
+        ? Number(fields.contract_version)
+        : 1;
+  const safetyClass =
+    typeof fields.safety_class === "string"
+      ? (fields.safety_class as SkillSafetyClass)
+      : (fields.writes ? "write" : "read");
+  const determinism =
+    typeof fields.determinism === "string"
+      ? (fields.determinism as SkillDeterminism)
+      : "medium";
 
   assertManifest(standaloneRoute.length > 0, "standalone_route must be non-empty", path);
   assertManifest(
@@ -133,6 +154,17 @@ function normalizeManifest(path: string, fields: Record<string, FrontmatterValue
       path,
     );
   }
+  assertManifest(contractVersion === 1, "contract_version must be 1", path);
+  assertManifest(
+    safetyClass === "read" || safetyClass === "write" || safetyClass === "mixed",
+    "safety_class must be one of read|write|mixed",
+    path,
+  );
+  assertManifest(
+    determinism === "high" || determinism === "medium" || determinism === "low",
+    "determinism must be one of high|medium|low",
+    path,
+  );
 
   return {
     name,
@@ -169,8 +201,24 @@ function normalizeManifest(path: string, fields: Record<string, FrontmatterValue
     standaloneInputs,
     standaloneOutputs,
     requiredCapabilities: parseListValue(fields.required_capabilities) as SkillManifest["requiredCapabilities"],
+    contractVersion,
+    safetyClass,
+    determinism,
     path,
   };
+}
+
+function validateStandaloneRoutes(manifests: SkillManifest[]): void {
+  const names = new Set(manifests.map((manifest) => manifest.name));
+  for (const manifest of manifests) {
+    for (const step of manifest.standaloneRoute) {
+      assertManifest(
+        names.has(step),
+        `standalone_route references unknown skill '${step}'`,
+        manifest.path,
+      );
+    }
+  }
 }
 
 export async function loadSkillRegistry(): Promise<SkillManifest[]> {
@@ -191,6 +239,8 @@ export async function loadSkillRegistry(): Promise<SkillManifest[]> {
     const markdown = await fs.readFile(manifestPath, "utf8");
     manifests.push(normalizeManifest(manifestPath, parseFrontmatter(markdown)));
   }
+
+  validateStandaloneRoutes(manifests);
 
   return manifests.sort((left, right) => left.name.localeCompare(right.name));
 }

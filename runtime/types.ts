@@ -28,8 +28,11 @@ export type ArtifactKey =
   | "approval.ticket"
   | "execution.reconciliation"
   | "report.operator-summary"
+  | "report.operator-brief"
+  | "mesh.skill-certification"
   | "diagnostics.probes"
   | "diagnostics.readiness"
+  | "diagnostics.reason-catalog"
   | "operations.live-guard"
   | "operations.rehearsal-plan"
   | "operations.rehearsal-receipt";
@@ -61,6 +64,15 @@ export type CapabilityRequirement =
   | "swap-write"
   | "option-write";
 export type ProbeMode = "passive" | "active" | "write";
+export type ProbeReasonCode =
+  | "cli_missing"
+  | "auth_failed"
+  | "network_error"
+  | "timeout"
+  | "schema_mismatch"
+  | "rate_limited"
+  | "unknown";
+export type DoctorStrictTarget = "plan" | "apply" | "execute";
 export type ProbeModuleName =
   | "runtime"
   | "skills"
@@ -71,6 +83,8 @@ export type ProbeModuleName =
   | "account-read"
   | "write-path";
 export type ProbeModuleLevel = "ready" | "degraded" | "blocked";
+export type SkillSafetyClass = "read" | "write" | "mixed";
+export type SkillDeterminism = "high" | "medium" | "low";
 
 export interface ArtifactReference {
   key: ArtifactKey;
@@ -86,7 +100,23 @@ export interface ProbeReceipt {
   durationMs: number;
   stdout: string;
   stderr: string;
+  reasonCode?: ProbeReasonCode;
+  nextActionCmd?: string;
   message?: string;
+}
+
+export interface ProbeReasonCatalogEntry {
+  module: ProbeModuleName;
+  reasonCode: ProbeReasonCode;
+  message: string;
+  nextActionCmd?: string;
+}
+
+export interface ProbeReasonCatalog {
+  probeMode: ProbeMode;
+  plane: ExecutionPlane;
+  generatedAt: string;
+  items: ProbeReasonCatalogEntry[];
 }
 
 export interface ProbeModuleStatus {
@@ -100,6 +130,8 @@ export interface ProbeModuleStatus {
 export interface EnvironmentDiagnosis {
   probeMode: ProbeMode;
   plane: ExecutionPlane;
+  strictTarget: DoctorStrictTarget;
+  strictPass: boolean;
   modules: ProbeModuleStatus[];
   probeReceipts: ProbeReceipt[];
 }
@@ -265,6 +297,13 @@ export interface ReconciliationReport {
   reconciledAt: string;
   status: "matched" | "ambiguous" | "failed";
   items: ReconciliationItem[];
+  attempts: Array<{
+    attempt: number;
+    at: string;
+    source: "auto" | "client-id" | "fallback";
+    windowMin: number;
+    status: "matched" | "ambiguous" | "failed";
+  }>;
   nextActions: string[];
 }
 
@@ -294,6 +333,33 @@ export interface OperatorSummaryV3 {
   generatedAt: string;
 }
 
+export interface OperatorBrief {
+  runId: string;
+  isExecutable: boolean;
+  currentBlocker: string;
+  approvalState: string;
+  idempotencyState: string;
+  reconciliationState: "none" | "pending" | "matched" | "ambiguous" | "failed";
+  nextSafeAction: string;
+}
+
+export interface SkillCertificationItem {
+  skill: string;
+  contractComplete: boolean;
+  standaloneRouteValid: boolean;
+  standaloneOutputsUsable: boolean;
+  passed: boolean;
+  failures: string[];
+}
+
+export interface SkillCertificationReport {
+  generatedAt: string;
+  totalSkills: number;
+  passedSkills: number;
+  failedSkills: number;
+  items: SkillCertificationItem[];
+}
+
 export interface SkillManifest {
   name: string;
   description: string;
@@ -316,6 +382,9 @@ export interface SkillManifest {
   standaloneInputs: Array<"goal" | "run-id" | ArtifactKey>;
   standaloneOutputs: ArtifactKey[];
   requiredCapabilities: CapabilityRequirement[];
+  contractVersion: number;
+  safetyClass: SkillSafetyClass;
+  determinism: SkillDeterminism;
 }
 
 export interface SkillProposal {

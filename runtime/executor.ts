@@ -39,6 +39,7 @@ import type {
   ExecutionResult,
   GoalIntake,
   GoalIntakeOverrides,
+  OperatorBrief,
   OperatorSummaryV3,
   OkxCommandIntent,
   OrderPlanStep,
@@ -53,6 +54,8 @@ import type {
   SkillPermissions,
   SkillProposal,
   SkillRisk,
+  SkillCertificationItem,
+  SkillCertificationReport,
 } from "./types.js";
 
 interface PlanOptions {
@@ -96,6 +99,9 @@ interface ExportOptions {
 interface ReconcileOptions {
   source?: "auto" | "client-id" | "fallback";
   windowMin?: number;
+  untilSettled?: boolean;
+  maxAttempts?: number;
+  intervalSec?: number;
 }
 
 interface RehearseOptions {
@@ -125,6 +131,20 @@ export interface ExportResult {
   bundlePath: string;
   reportPath: string;
   operatorSummaryPath: string;
+  summary: string;
+}
+
+export interface SkillsCertificationResult {
+  report: SkillCertificationReport;
+  artifact: {
+    key: "mesh.skill-certification";
+    version: number;
+    producer: string;
+    createdAt: string;
+    data: SkillCertificationReport;
+    ruleRefs: string[];
+    doctrineRefs: string[];
+  };
   summary: string;
 }
 
@@ -392,6 +412,105 @@ function buildRouteSummary(
 
 function preferredProposalName(proposals: SkillProposal[]): string | undefined {
   return proposals.find((proposal) => proposal.recommended)?.name ?? proposals[0]?.name;
+}
+
+function buildSkillCertificationReport(manifests: SkillManifest[]): SkillCertificationReport {
+  const names = new Set(manifests.map((manifest) => manifest.name));
+  const producesByName = new Map(manifests.map((manifest) => [manifest.name, new Set(manifest.produces)]));
+  const items: SkillCertificationItem[] = manifests
+    .map((manifest) => {
+      const contractFailures: string[] = [];
+      if (manifest.contractVersion !== 1) {
+        contractFailures.push("contractVersion must be 1");
+      }
+      if (!["read", "write", "mixed"].includes(manifest.safetyClass)) {
+        contractFailures.push("safetyClass must be read|write|mixed");
+      }
+      if (!["high", "medium", "low"].includes(manifest.determinism)) {
+        contractFailures.push("determinism must be high|medium|low");
+      }
+      if (manifest.standaloneCommand.trim().length === 0) {
+        contractFailures.push("standaloneCommand must be non-empty");
+      }
+
+      const routeFailures: string[] = [];
+      if (manifest.standaloneRoute.length === 0) {
+        routeFailures.push("standaloneRoute must be non-empty");
+      } else {
+        if (manifest.standaloneRoute.at(-1) !== manifest.name) {
+          routeFailures.push("standaloneRoute must end with the skill name");
+        }
+        for (const step of manifest.standaloneRoute) {
+          if (!names.has(step)) {
+            routeFailures.push(`standaloneRoute references unknown skill '${step}'`);
+          }
+        }
+      }
+
+      const outputsFailures: string[] = [];
+      if (manifest.name !== "replay" && manifest.standaloneOutputs.length === 0) {
+        outputsFailures.push("standaloneOutputs must be non-empty");
+      }
+      if (manifest.name === "replay" && manifest.standaloneOutputs.length > 0) {
+        outputsFailures.push("replay standaloneOutputs must stay empty");
+      }
+      if (manifest.standaloneRoute.length > 0) {
+        const routeProduced = new Set<string>();
+        for (const step of manifest.standaloneRoute) {
+          for (const key of producesByName.get(step) ?? []) {
+            routeProduced.add(key);
+          }
+        }
+        for (const key of manifest.standaloneOutputs) {
+          if (!routeProduced.has(key)) {
+            outputsFailures.push(`standalone output '${key}' is not produced by its standaloneRoute`);
+          }
+        }
+      }
+
+      const contractComplete = contractFailures.length === 0;
+      const standaloneRouteValid = routeFailures.length === 0;
+      const standaloneOutputsUsable = outputsFailures.length === 0;
+      const failures = [...contractFailures, ...routeFailures, ...outputsFailures];
+      return {
+        skill: manifest.name,
+        contractComplete,
+        standaloneRouteValid,
+        standaloneOutputsUsable,
+        passed: failures.length === 0,
+        failures,
+      } satisfies SkillCertificationItem;
+    })
+    .sort((left, right) => left.skill.localeCompare(right.skill));
+
+  const passedSkills = items.filter((item) => item.passed).length;
+  return {
+    generatedAt: now(),
+    totalSkills: items.length,
+    passedSkills,
+    failedSkills: items.length - passedSkills,
+    items,
+  };
+}
+
+function skillCertificationSummary(report: SkillCertificationReport): string {
+  return [
+    "TradeMesh Skills Certification",
+    `Generated at: ${report.generatedAt}`,
+    `Pass: ${report.passedSkills}/${report.totalSkills}`,
+    "",
+    table(
+      ["Skill", "Contract", "Route", "Outputs", "Status", "Top Failure"],
+      report.items.map((item) => [
+        item.skill,
+        item.contractComplete ? "ok" : "fail",
+        item.standaloneRouteValid ? "ok" : "fail",
+        item.standaloneOutputsUsable ? "ok" : "fail",
+        item.passed ? "passed" : "failed",
+        item.failures[0] ?? "none",
+      ]),
+    ),
+  ].join("\n");
 }
 
 function buildJudgeSummary(record: RunRecord): RunRecord["judgeSummary"] {
@@ -1027,6 +1146,12 @@ export async function createPlan(goal: string, options: PlanOptions): Promise<Ru
       sharedState,
     },
   });
+  putArtifact(artifacts, {
+    key: "mesh.skill-certification",
+    version: currentArtifactVersion("mesh.skill-certification"),
+    producer: "plan-runtime",
+    data: buildSkillCertificationReport(manifests),
+  });
   const policyDecision = artifacts.get<PolicyDecision>("policy.plan-decision")?.data;
   const proposals = proposalsFromArtifacts(artifacts);
   const selectedProposal = preferredProposalName(proposals);
@@ -1096,6 +1221,14 @@ export async function runSkillStandalone(
   const capabilitySnapshot = await inspectOkxEnvironment();
   const sharedState: Record<string, unknown> = {};
   const artifacts = createArtifactStore(options.inputArtifacts, sharedState);
+  if (!artifacts.has("mesh.skill-certification")) {
+    putArtifact(artifacts, {
+      key: "mesh.skill-certification",
+      version: currentArtifactVersion("mesh.skill-certification"),
+      producer: "standalone-runtime",
+      data: buildSkillCertificationReport(manifests),
+    });
+  }
   const graph = await runExplicitRoute({
     route: manifest.standaloneRoute,
     manifests,
@@ -1209,6 +1342,12 @@ export async function applyRun(runId: string, options: ApplyOptions): Promise<Ru
       version: currentArtifactVersion("diagnostics.readiness"),
       producer: "apply-runtime",
       data: liveDoctor.diagnosis,
+    });
+    putArtifact(artifacts, {
+      key: "diagnostics.reason-catalog",
+      version: currentArtifactVersion("diagnostics.reason-catalog"),
+      producer: "apply-runtime",
+      data: liveDoctor.reasonCatalog,
     });
   }
   const decision = await evaluatePolicy({
@@ -1555,21 +1694,42 @@ export async function reconcileRun(runId: string, options: ReconcileOptions = {}
   const sharedState: Record<string, unknown> = {};
   const artifacts = createArtifactStore(artifactSnapshot, sharedState);
   const traceWithoutReplay = record.trace.filter((entry) => entry.skill !== "replay");
-  const reconcileOutput = await executeSkill(reconcileManifest, {
-    runId: record.id,
-    goal: record.goal,
-    plane: latestExecution.plane,
-    manifests,
-    trace: traceWithoutReplay,
-    artifacts,
-    runtimeInput: {
-      execution: latestExecution,
-      reconcileSource: options.source ?? "auto",
-      reconcileWindowMin: options.windowMin ?? 120,
-    },
-    sharedState,
-  });
-  const report = artifacts.get<ReconciliationReport>("execution.reconciliation")?.data;
+  const maxAttempts = options.untilSettled ? Math.max(1, Math.floor(options.maxAttempts ?? 3)) : 1;
+  const intervalMs = Math.max(1, Math.floor((options.intervalSec ?? 5) * 1_000));
+  const reconcileOutputs: SkillOutput[] = [];
+  let report: ReconciliationReport | undefined;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const output = await executeSkill(reconcileManifest, {
+      runId: record.id,
+      goal: record.goal,
+      plane: latestExecution.plane,
+      manifests,
+      trace: [...traceWithoutReplay, ...reconcileOutputs],
+      artifacts,
+      runtimeInput: {
+        execution: latestExecution,
+        reconcileSource: options.source ?? "auto",
+        reconcileWindowMin: options.windowMin ?? 120,
+        attemptNumber: attempt,
+        maxAttempts,
+        untilSettled: options.untilSettled === true,
+      },
+      sharedState,
+    });
+    reconcileOutputs.push(output);
+    report = artifacts.get<ReconciliationReport>("execution.reconciliation")?.data;
+    if (!report) {
+      break;
+    }
+    if (report.status === "matched") {
+      break;
+    }
+    if (attempt >= maxAttempts || options.untilSettled !== true) {
+      break;
+    }
+    await sleep(intervalMs);
+  }
+
   if (!report) {
     throw new Error("Reconcile engine did not produce execution.reconciliation artifact.");
   }
@@ -1581,27 +1741,31 @@ export async function reconcileRun(runId: string, options: ReconcileOptions = {}
     reconciliationRequired: report.status !== "matched",
   };
   const nextStatus: RunStatus = report.status === "matched" && record.status === "blocked" ? "executed" : record.status;
+  const reconcileCommand = options.untilSettled
+    ? `node dist/bin/trademesh.js reconcile ${record.id} --source ${options.source ?? "auto"} --window-min ${options.windowMin ?? 120} --until-settled --max-attempts ${maxAttempts} --interval-sec ${Math.max(1, Math.floor(options.intervalSec ?? 5))}`
+    : `node dist/bin/trademesh.js reconcile ${record.id}`;
   const operatorOutput = await executeSkill(operatorManifest, {
     runId: record.id,
     goal: record.goal,
     plane: latestExecution.plane,
     manifests,
-    trace: [...traceWithoutReplay, reconcileOutput],
+    trace: [...traceWithoutReplay, ...reconcileOutputs],
     artifacts,
     runtimeInput: {
       runStatus: nextStatus,
       latestExecution: reconciledExecutions.at(-1),
       nextSafeAction: report.status === "matched"
         ? `node dist/bin/trademesh.js export ${record.id}`
-        : `node dist/bin/trademesh.js reconcile ${record.id}`,
+        : reconcileCommand,
     },
     sharedState,
   });
   const operatorSummary = artifacts.get<OperatorSummaryV3>("report.operator-summary")?.data;
+  const attemptsRan = report.attempts?.length ?? reconcileOutputs.length;
   const nextRecord = hydrateRecord({
     ...record,
     status: nextStatus,
-    trace: [...traceWithoutReplay, reconcileOutput, operatorOutput],
+    trace: [...traceWithoutReplay, ...reconcileOutputs, operatorOutput],
     executions: reconciledExecutions,
     operatorState: operatorSummary
       ? operatorSummary.requiresHumanAction
@@ -1612,7 +1776,7 @@ export async function reconcileRun(runId: string, options: ReconcileOptions = {}
     requiresHumanAction: operatorSummary?.requiresHumanAction ?? record.requiresHumanAction,
     notes: [
       ...record.notes,
-      `Reconcile ${report.status}: ${report.items.length} write intent(s) processed.`,
+      `Reconcile ${report.status}: ${report.items.length} write intent(s) processed in ${attemptsRan} attempt(s).`,
     ],
     updatedAt: now(),
   });
@@ -1695,6 +1859,12 @@ export async function rehearseDemo(options: RehearseOptions = {}): Promise<RunRe
 
   const sharedState: Record<string, unknown> = {};
   const artifacts = createArtifactStore(undefined, sharedState);
+  putArtifact(artifacts, {
+    key: "mesh.skill-certification",
+    version: currentArtifactVersion("mesh.skill-certification"),
+    producer: "rehearse-runtime",
+    data: buildSkillCertificationReport(manifests),
+  });
   const route = [
     "env-probe",
     "market-probe",
@@ -2006,6 +2176,10 @@ function latestReconciliation(artifacts: ArtifactStore): ReconciliationReport | 
   return artifacts.get<ReconciliationReport>("execution.reconciliation")?.data ?? null;
 }
 
+function latestSkillCertification(artifacts: ArtifactStore): SkillCertificationReport | null {
+  return artifacts.get<SkillCertificationReport>("mesh.skill-certification")?.data ?? null;
+}
+
 function idempotentHitCount(execution: ExecutionRecord | undefined): number {
   if (!execution) {
     return 0;
@@ -2091,8 +2265,35 @@ function buildOperatorSummary(record: RunRecord, artifacts: ArtifactStore): Oper
   };
 }
 
+function buildOperatorBrief(summary: OperatorSummaryV3): OperatorBrief {
+  const approvalState = summary.approval.ticketId
+    ? `approved(${summary.approval.approvedBy ?? "unknown"})`
+    : summary.approval.provided
+      ? "approve_flag_only"
+      : "missing";
+  const idempotencyState = summary.idempotency.checked
+    ? summary.idempotency.hitCount > 0
+      ? `checked(hit=${summary.idempotency.hitCount})`
+      : "checked(clean)"
+    : "unchecked";
+  return {
+    runId: summary.runId,
+    isExecutable: summary.isExecutable,
+    currentBlocker: summary.blockers[0] ?? "none",
+    approvalState,
+    idempotencyState,
+    reconciliationState: summary.reconciliation.state,
+    nextSafeAction: summary.nextSafeAction,
+  };
+}
+
 function operatorSummaryOrFallback(record: RunRecord, artifacts: ArtifactStore): OperatorSummaryV3 {
   return artifacts.get<OperatorSummaryV3>("report.operator-summary")?.data ?? buildOperatorSummary(record, artifacts);
+}
+
+function operatorBriefOrFallback(record: RunRecord, artifacts: ArtifactStore): OperatorBrief {
+  return artifacts.get<OperatorBrief>("report.operator-brief")?.data ??
+    buildOperatorBrief(operatorSummaryOrFallback(record, artifacts));
 }
 
 function putOperatorSummaryArtifact(
@@ -2106,6 +2307,12 @@ function putOperatorSummaryArtifact(
     version: currentArtifactVersion("report.operator-summary"),
     producer,
     data: summary,
+  });
+  putArtifact(artifacts, {
+    key: "report.operator-brief",
+    version: currentArtifactVersion("report.operator-brief"),
+    producer,
+    data: buildOperatorBrief(summary),
   });
   return summary;
 }
@@ -2224,13 +2431,15 @@ export async function printSkillList(): Promise<{ manifests: SkillManifest[]; su
   const summary = [
     "TradeMesh Installed Skills",
     table(
-      ["Skill", "Stage", "Role", "Mode", "Writes", "Description"],
+      ["Skill", "Stage", "Role", "Mode", "Writes", "Safety", "Det", "Description"],
       manifests.map((manifest) => [
         manifest.name,
         manifest.stage,
         manifest.role,
         manifest.alwaysOn ? "always-on" : "on-demand",
         manifest.writes ? "yes" : "no",
+        manifest.safetyClass,
+        manifest.determinism.slice(0, 3),
         truncate(manifest.description, 48),
       ]),
     ),
@@ -2239,6 +2448,25 @@ export async function printSkillList(): Promise<{ manifests: SkillManifest[]; su
   return {
     manifests,
     summary,
+  };
+}
+
+export async function certifySkills(manifestsInput?: SkillManifest[]): Promise<SkillsCertificationResult> {
+  const manifests = manifestsInput ?? await loadSkillRegistry();
+  const report = buildSkillCertificationReport(manifests);
+  const createdAt = now();
+  return {
+    report,
+    artifact: {
+      key: "mesh.skill-certification",
+      version: currentArtifactVersion("mesh.skill-certification"),
+      producer: "skills-certify",
+      createdAt,
+      data: report,
+      ruleRefs: [],
+      doctrineRefs: [],
+    },
+    summary: skillCertificationSummary(report),
   };
 }
 
@@ -2258,6 +2486,9 @@ export async function inspectSkill(skillName: string): Promise<{ skill: SkillRun
       `Role: ${skill.role}`,
       `Writes: ${skill.writes ? "yes" : "no"}`,
       `Risk level: ${skill.riskLevel}`,
+      `Contract version: ${skill.contractVersion}`,
+      `Safety class: ${skill.safetyClass}`,
+      `Determinism: ${skill.determinism}`,
       `Description: ${skill.description}`,
     ]),
     block("Contracts", [
@@ -2348,6 +2579,8 @@ function exportBundlePayload(record: RunRecord, artifacts: ArtifactStore): Recor
   const approvalTicket = latestApprovalTicket(artifacts);
   const reconciliationSummary = latestReconciliation(artifacts);
   const operatorSummary = operatorSummaryOrFallback(record, artifacts);
+  const operatorBrief = operatorBriefOrFallback(record, artifacts);
+  const skillCertification = latestSkillCertification(artifacts);
 
   return {
     runId: record.id,
@@ -2375,6 +2608,8 @@ function exportBundlePayload(record: RunRecord, artifacts: ArtifactStore): Recor
     executionReceipts: record.executions,
     latestExecution,
     operatorSummary,
+    operatorBrief,
+    skillCertification,
     errors: record.errors,
     notes: record.notes,
     nextActions: nextSafeAction(record),
@@ -2385,21 +2620,17 @@ function exportReport(record: RunRecord, artifacts: ArtifactStore): string {
   const goalIntake = goalIntakeFromArtifacts(artifacts) ?? traceGoalIntake(record);
   const latestExecution = record.executions.at(-1);
   const selectedProposal = record.selectedProposal ?? preferredProposalName(record.proposals);
-  const operatorSummary = operatorSummaryOrFallback(record, artifacts);
-  const operatorBlockers = operatorSummary.blockers;
-  const operatorNextAction = operatorSummary.nextSafeAction;
-  const approvalTicket = latestApprovalTicket(artifacts);
-  const reconcile = latestReconciliation(artifacts);
+  const operatorBrief = operatorBriefOrFallback(record, artifacts);
   return [
     `# TradeMesh Export Report`,
     "",
-    markdownSection("Operator Snapshot", [
-      `Executable now: ${operatorSummary.isExecutable === true ? "yes" : "no"}`,
-      `Blockers: ${operatorBlockers.length > 0 ? operatorBlockers.join(" | ") : "none"}`,
-      `Approval ticket: ${approvalTicket?.ticketId ?? "none"}`,
-      `Idempotent hit count: ${idempotentHitCount(latestExecution ?? undefined)}`,
-      `Needs reconcile: ${reconcile && reconcile.status !== "matched" ? "yes" : "no"}`,
-      `Next safe action: ${operatorNextAction}`,
+    markdownSection("Operator Brief", [
+      `isExecutable: ${operatorBrief.isExecutable ? "yes" : "no"}`,
+      `currentBlocker: ${operatorBrief.currentBlocker}`,
+      `approvalState: ${operatorBrief.approvalState}`,
+      `idempotencyState: ${operatorBrief.idempotencyState}`,
+      `reconciliationState: ${operatorBrief.reconciliationState}`,
+      `nextSafeAction: ${operatorBrief.nextSafeAction}`,
     ]),
     markdownSection("Summary", [
       `Run: ${record.id}`,
@@ -2502,6 +2733,8 @@ export function formatReplay(record: RunRecord): string {
   const replayEntry = [...record.trace].reverse().find((entry) => entry.skill === "replay");
   const operatorEntry = [...record.trace].reverse().find((entry) => entry.skill === "operator-summarizer");
   const operatorSummary = (operatorEntry?.metadata as { operatorSummary?: OperatorSummaryV3 } | undefined)?.operatorSummary;
+  const operatorBrief = (operatorEntry?.metadata as { operatorBrief?: OperatorBrief } | undefined)?.operatorBrief ??
+    (operatorSummary ? buildOperatorBrief(operatorSummary) : undefined);
   const timelineRaw = Array.isArray(replayEntry?.metadata?.timeline) ? replayEntry.metadata?.timeline as string[] : [];
   const artifactRaw = Array.isArray(replayEntry?.metadata?.artifacts) ? replayEntry.metadata?.artifacts as string[] : [];
   const evidenceRaw = Array.isArray(replayEntry?.metadata?.evidence) ? replayEntry.metadata?.evidence as string[] : [];
@@ -2514,12 +2747,12 @@ export function formatReplay(record: RunRecord): string {
   return [
     ...header("Replay Timeline", record),
     block("Operator Snapshot", [
-      `Executable now: ${operatorSummary?.isExecutable ? "yes" : "no"}`,
-      `Current blocker: ${operatorSummary && operatorSummary.blockers.length > 0 ? operatorSummary.blockers.join(" | ") : (latestExecution?.blockedReason ?? "none")}`,
-      `Approval ticket: ${operatorSummary?.approval.ticketId ?? latestExecution?.approvalTicketId ?? "none"}`,
-      `Idempotent hits: ${operatorSummary?.idempotency.hitCount ?? idempotentHitCount(latestExecution)}`,
-      `Needs reconcile: ${operatorSummary?.reconciliation.required ? "yes" : "no"}`,
-      `Next safe action: ${operatorSummary?.nextSafeAction ?? `node dist/bin/trademesh.js export ${record.id}`}`,
+      `isExecutable: ${operatorBrief?.isExecutable ? "yes" : "no"}`,
+      `currentBlocker: ${operatorBrief?.currentBlocker ?? latestExecution?.blockedReason ?? "none"}`,
+      `approvalState: ${operatorBrief?.approvalState ?? (operatorSummary?.approval.ticketId ? "approved" : "missing")}`,
+      `idempotencyState: ${operatorBrief?.idempotencyState ?? `checked(hit=${idempotentHitCount(latestExecution)})`}`,
+      `reconciliationState: ${operatorBrief?.reconciliationState ?? "none"}`,
+      `nextSafeAction: ${operatorBrief?.nextSafeAction ?? `node dist/bin/trademesh.js export ${record.id}`}`,
     ]),
     block("Run Snapshot", [
       `Approved: ${record.approved ? "yes" : "no"}`,

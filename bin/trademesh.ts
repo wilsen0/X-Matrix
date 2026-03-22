@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import process from "node:process";
 import {
   applyRun,
+  certifySkills,
   describeSkillGraph,
   createPlan,
   exportRun,
@@ -27,6 +28,7 @@ import type {
   GoalHedgeIntent,
   GoalIntakeOverrides,
   ProbeMode,
+  DoctorStrictTarget,
   GoalTimeHorizon,
 } from "../runtime/types.js";
 
@@ -70,10 +72,11 @@ function parseArgs(args: string[]): ParsedArgs {
 
 function printHelp(): void {
   console.log(`Usage:
-  trademesh doctor [--probe passive|active|write] [--plane research|demo|live]
+  trademesh doctor [--probe passive|active|write] [--plane research|demo|live] [--strict] [--strict-target plan|apply|execute]
   trademesh demo "<goal>" [--plane research|demo|live] [--execute] [--symbol BTC,ETH] [--max-drawdown 4] [--intent protect-downside|reduce-beta|de-risk] [--horizon intraday|swing|position] [--json]
   trademesh skills ls|list
   trademesh skills inspect <name> [--json]
+  trademesh skills certify [--json]
   trademesh skills run <name> "<goal>" [--plane research|demo|live] [--symbol BTC,ETH] [--max-drawdown 4] [--intent protect-downside|reduce-beta|de-risk] [--horizon intraday|swing|position] [--input <artifact.json>] [--json]
   trademesh skills graph [--json]
   trademesh runs list
@@ -81,7 +84,7 @@ function printHelp(): void {
   trademesh rehearse demo [--execute] [--approve] [--json]
   trademesh replay <run-id> [--skill <name>] [--json]
   trademesh retry <run-id> [--json]
-  trademesh reconcile <run-id> [--source auto|client-id|fallback] [--window-min <n>] [--json]
+  trademesh reconcile <run-id> [--source auto|client-id|fallback] [--window-min <n>] [--until-settled] [--max-attempts <n>] [--interval-sec <n>] [--json]
   trademesh export <run-id> [--format md|json] [--output <path>] [--json]
   trademesh apply <run-id> [--plane demo|live] [--profile demo|live] [--proposal <name>] [--approve] [--approved-by <name>] [--approval-reason <text>] [--live-confirm YES_LIVE_EXECUTION] [--max-order-usd <n>] [--max-total-usd <n>] [--execute] [--json]`);
 }
@@ -220,12 +223,30 @@ function readProbeMode(value: string | boolean | undefined): ProbeMode {
   return "passive";
 }
 
+function readStrictTarget(value: string | boolean | undefined): DoctorStrictTarget {
+  if (value === "plan" || value === "apply" || value === "execute") {
+    return value;
+  }
+  return "apply";
+}
+
 function parsePositiveNumber(value: string | boolean | undefined): number | undefined {
   if (typeof value !== "string") {
     return undefined;
   }
   const parsed = Number(value.trim());
   return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function parsePositiveInteger(value: string | boolean | undefined): number | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const parsed = Number(value.trim());
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return undefined;
+  }
+  return Math.floor(parsed);
 }
 
 function parseReconcileSource(value: string | boolean | undefined): "auto" | "client-id" | "fallback" | undefined {
@@ -271,8 +292,13 @@ async function main(): Promise<void> {
     const report = await runDoctor({
       probeMode: readProbeMode(parsed.flags.probe),
       plane: readDoctorPlane(parsed.flags.plane),
+      strict: parsed.flags.strict === true,
+      strictTarget: readStrictTarget(parsed.flags["strict-target"]),
     });
     console.log(jsonMode ? JSON.stringify(report, null, 2) : report.summary);
+    if (parsed.flags.strict === true && !report.strictPass) {
+      process.exitCode = 2;
+    }
     return;
   }
 
@@ -312,6 +338,12 @@ async function main(): Promise<void> {
 
     const inspection = await inspectSkill(skillName);
     console.log(jsonMode ? JSON.stringify(inspection, null, 2) : inspection.summary);
+    return;
+  }
+
+  if (command === "skills" && args[1] === "certify") {
+    const certification = await certifySkills();
+    console.log(jsonMode ? JSON.stringify(certification, null, 2) : certification.summary);
     return;
   }
 
@@ -441,6 +473,9 @@ async function main(): Promise<void> {
     const record = await reconcileRun(runId, {
       source: parseReconcileSource(parsed.flags.source),
       windowMin: parsePositiveNumber(parsed.flags["window-min"]),
+      untilSettled: parsed.flags["until-settled"] === true,
+      maxAttempts: parsePositiveInteger(parsed.flags["max-attempts"]),
+      intervalSec: parsePositiveInteger(parsed.flags["interval-sec"]),
     });
     console.log(jsonMode ? JSON.stringify(record, null, 2) : formatRunSummary(record));
     return;

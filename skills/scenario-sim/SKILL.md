@@ -14,6 +14,9 @@ produces: [planning.proposals, planning.scenario-matrix]
 preferred_handoffs: [policy-gate]
 repeatable: false
 artifact_version: 3
+contract_version: 1
+safety_class: read
+determinism: high
 standalone_command: "trademesh skills run scenario-sim \"<goal>\""
 standalone_route: [portfolio-xray, market-scan, trade-thesis, hedge-planner, scenario-sim]
 standalone_inputs: [goal]

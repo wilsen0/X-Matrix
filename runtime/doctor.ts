@@ -4,9 +4,12 @@ import { getProjectPaths } from "./paths.js";
 import { loadSkillRegistry } from "./registry.js";
 import type {
   CapabilitySnapshot,
+  DoctorStrictTarget,
   EnvironmentDiagnosis,
   ExecutionPlane,
   ProbeMode,
+  ProbeReasonCatalog,
+  ProbeReasonCatalogEntry,
   ProbeModuleName,
   ProbeModuleStatus,
   ProbeReceipt,
@@ -39,6 +42,8 @@ const APPLY_PACK = [
 export interface RunDoctorOptions {
   probeMode?: ProbeMode;
   plane?: ExecutionPlane;
+  strict?: boolean;
+  strictTarget?: DoctorStrictTarget;
 }
 
 export interface DoctorReport {
@@ -54,9 +59,12 @@ export interface DoctorReport {
   executionReadiness: ExecutionReadiness;
   missingSkills: string[];
   recommendations: string[];
+  strictTarget: DoctorStrictTarget;
+  strictPass: boolean;
   probeMode: ProbeMode;
   modules: ProbeModuleStatus[];
   probeReceipts: ProbeReceipt[];
+  reasonCatalog: ProbeReasonCatalog;
   diagnosis: EnvironmentDiagnosis;
 }
 
@@ -228,8 +236,8 @@ function probeResultToStatus(
     module,
     "blocked",
     receipt.message ?? "Probe command failed.",
-    [`${receipt.command} (${receipt.durationMs}ms)`],
-    "Resolve command failure and rerun doctor --probe active.",
+    [`${receipt.command} (${receipt.durationMs}ms)`, `reasonCode=${receipt.reasonCode ?? "unknown"}`],
+    receipt.nextActionCmd ?? "Resolve command failure and rerun doctor --probe active.",
   );
 }
 
@@ -320,15 +328,49 @@ async function runProbeReceipts(mode: ProbeMode, plane: ExecutionPlane): Promise
   return receipts;
 }
 
+function readStrictTarget(value: DoctorStrictTarget): "planReadiness" | "applyReadiness" | "executeReadiness" {
+  if (value === "plan") {
+    return "planReadiness";
+  }
+  if (value === "execute") {
+    return "executeReadiness";
+  }
+  return "applyReadiness";
+}
+
+function buildReasonCatalog(
+  probeMode: ProbeMode,
+  plane: ExecutionPlane,
+  receipts: ProbeReceipt[],
+): ProbeReasonCatalog {
+  const items: ProbeReasonCatalogEntry[] = receipts
+    .filter((receipt) => !receipt.ok)
+    .map((receipt) => ({
+      module: receipt.module,
+      reasonCode: receipt.reasonCode ?? "unknown",
+      message: receipt.message ?? (receipt.stderr || "probe failed"),
+      nextActionCmd: receipt.nextActionCmd,
+    }));
+  return {
+    probeMode,
+    plane,
+    generatedAt: new Date().toISOString(),
+    items,
+  };
+}
+
 export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorReport> {
   const probeMode: ProbeMode = options.probeMode ?? "passive";
   const plane: ExecutionPlane = options.plane ?? "demo";
+  const strictEnabled = options.strict === true;
+  const strictTarget: DoctorStrictTarget = options.strictTarget ?? "apply";
   const paths = getProjectPaths();
   const [skills, capabilitySnapshot] = await Promise.all([loadSkillRegistry(), inspectOkxEnvironment()]);
   const skillNames = skills.map((skill) => skill.name);
   const readiness = computeExecutionReadiness(skillNames, capabilitySnapshot);
   const phaseState = phaseReadiness(skillNames, capabilitySnapshot);
   const probeReceipts = await runProbeReceipts(probeMode, plane);
+  const reasonCatalog = buildReasonCatalog(probeMode, plane, probeReceipts);
   const marketReceipt = probeReceipts.find((entry) => entry.module === "market-read");
   const accountReceipt = probeReceipts.find((entry) => entry.module === "account-read");
   const modules: ProbeModuleStatus[] = [
@@ -384,9 +426,12 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
   const diagnosis: EnvironmentDiagnosis = {
     probeMode,
     plane,
+    strictTarget,
+    strictPass: phaseState[readStrictTarget(strictTarget)] === "ready",
     modules,
     probeReceipts,
   };
+  const strictPass = diagnosis.strictPass;
 
   const recommendations = [
     ...(readiness.missingSkills.length > 0
@@ -401,8 +446,11 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
       ? "Run `trademesh doctor --probe active` for runtime read-path validation."
       : "Use `trademesh rehearse demo` to validate policy + executor with deterministic rehearsal flow.",
     "Prefer apply without --execute first to validate policy and execution intents.",
+    ...(strictEnabled && !strictPass
+      ? [`Doctor strict gate failed for target '${strictTarget}'. Resolve blockers and rerun doctor.`]
+      : []),
   ];
-  const ok = readiness.readiness !== "cannot_execute";
+  const ok = readiness.readiness !== "cannot_execute" && (!strictEnabled || strictPass);
 
   const summary = [
     "TradeMesh CLI Skill Mesh 2.0",
@@ -416,6 +464,7 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
       `Plan readiness: ${phaseState.planReadiness}`,
       `Apply readiness: ${phaseState.applyReadiness}`,
       `Execute readiness: ${phaseState.executeReadiness}`,
+      `Strict gate: target=${strictTarget} pass=${strictPass ? "yes" : "no"}`,
       `Mesh state: ${readinessLabel(readiness.readiness)}`,
       `Executable plane recommendation: ${capabilitySnapshot.recommendedPlane}`,
       `Skills installed: ${skills.length}`,
@@ -447,9 +496,12 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
     executionReadiness: readiness.readiness,
     missingSkills: readiness.missingSkills,
     recommendations,
+    strictTarget,
+    strictPass,
     probeMode,
     modules,
     probeReceipts,
+    reasonCatalog,
     diagnosis,
   };
 }

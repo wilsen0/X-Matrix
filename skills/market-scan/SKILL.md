@@ -14,6 +14,9 @@ produces: [market.snapshot, market.regime]
 preferred_handoffs: [trade-thesis]
 repeatable: false
 artifact_version: 3
+contract_version: 1
+safety_class: read
+determinism: medium
 standalone_command: "trademesh skills run market-scan \"<goal>\""
 standalone_route: [portfolio-xray, market-scan]
 standalone_inputs: [goal]

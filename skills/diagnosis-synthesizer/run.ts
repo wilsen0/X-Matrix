@@ -116,6 +116,8 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
   const diagnosis: EnvironmentDiagnosis = {
     probeMode: probes.probeMode,
     plane: probes.plane,
+    strictTarget: "apply",
+    strictPass: modules.every((entry) => entry.status !== "blocked"),
     modules,
     probeReceipts: probes.probeReceipts,
   };
@@ -125,6 +127,24 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
     version: currentArtifactVersion("diagnostics.readiness"),
     producer: context.manifest.name,
     data: diagnosis,
+  });
+  putArtifact(context.artifacts, {
+    key: "diagnostics.reason-catalog",
+    version: currentArtifactVersion("diagnostics.reason-catalog"),
+    producer: context.manifest.name,
+    data: {
+      probeMode: probes.probeMode,
+      plane: probes.plane,
+      generatedAt: new Date().toISOString(),
+      items: probes.probeReceipts
+        .filter((receipt) => !receipt.ok)
+        .map((receipt) => ({
+          module: receipt.module,
+          reasonCode: receipt.reasonCode ?? "unknown",
+          message: receipt.message ?? (receipt.stderr || "probe failed"),
+          nextActionCmd: receipt.nextActionCmd,
+        })),
+    },
   });
 
   return {
@@ -151,7 +171,7 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
       allowedModules: ["account", "market"],
     },
     handoff: "rehearsal-planner",
-    producedArtifacts: ["diagnostics.readiness"],
+    producedArtifacts: ["diagnostics.readiness", "diagnostics.reason-catalog"],
     consumedArtifacts: ["diagnostics.probes"],
     timestamp: new Date().toISOString(),
   };

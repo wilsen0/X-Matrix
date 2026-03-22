@@ -14,6 +14,9 @@ produces: [execution.reconciliation]
 preferred_handoffs: [operator-summarizer]
 repeatable: true
 artifact_version: 3
+contract_version: 1
+safety_class: read
+determinism: medium
 standalone_command: "trademesh skills run reconcile-engine \"<run-id>\" --plane demo"
 standalone_route: [reconcile-engine]
 standalone_inputs: [run-id]

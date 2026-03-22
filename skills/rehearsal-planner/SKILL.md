@@ -14,6 +14,9 @@ produces: [trade.thesis, planning.proposals, planning.scenario-matrix, operation
 preferred_handoffs: [policy-gate]
 repeatable: false
 artifact_version: 3
+contract_version: 1
+safety_class: read
+determinism: high
 standalone_command: "trademesh skills run rehearsal-planner \"<goal>\" --plane demo"
 standalone_route: [env-probe, market-probe, account-probe, diagnosis-synthesizer, rehearsal-planner]
 standalone_inputs: [goal]

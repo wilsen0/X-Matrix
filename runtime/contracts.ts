@@ -24,8 +24,11 @@ const ARTIFACT_KEYS: ArtifactKey[] = [
   "approval.ticket",
   "execution.reconciliation",
   "report.operator-summary",
+  "report.operator-brief",
+  "mesh.skill-certification",
   "diagnostics.probes",
   "diagnostics.readiness",
+  "diagnostics.reason-catalog",
   "operations.live-guard",
   "operations.rehearsal-plan",
   "operations.rehearsal-receipt",
@@ -149,6 +152,15 @@ export function validateArtifactData(key: ArtifactKey, data: unknown): void {
   if (key === "diagnostics.readiness") {
     const record = asObject(data);
     invariant(record, `Artifact '${key}' must be an object.`);
+    if ("strictTarget" in record) {
+      invariant(
+        ["plan", "apply", "execute"].includes(String(record.strictTarget)),
+        `Artifact '${key}.strictTarget' is invalid.`,
+      );
+    }
+    if ("strictPass" in record) {
+      invariant(typeof record.strictPass === "boolean", `Artifact '${key}.strictPass' must be a boolean.`);
+    }
     if ("modules" in record) {
       invariant(Array.isArray(record.modules), `Artifact '${key}.modules' must be an array.`);
     }
@@ -213,6 +225,9 @@ export function validateArtifactData(key: ArtifactKey, data: unknown): void {
     if ("items" in record) {
       invariant(Array.isArray(record.items), `Artifact '${key}.items' must be an array.`);
     }
+    if ("attempts" in record) {
+      invariant(Array.isArray(record.attempts), `Artifact '${key}.attempts' must be an array.`);
+    }
     return;
   }
 
@@ -260,6 +275,72 @@ export function validateArtifactData(key: ArtifactKey, data: unknown): void {
     }
     if ("requiresHumanAction" in record) {
       invariant(typeof record.requiresHumanAction === "boolean", `Artifact '${key}.requiresHumanAction' must be a boolean.`);
+    }
+    return;
+  }
+
+  if (key === "report.operator-brief") {
+    const record = asObject(data);
+    invariant(record, `Artifact '${key}' must be an object.`);
+    if ("isExecutable" in record) {
+      invariant(typeof record.isExecutable === "boolean", `Artifact '${key}.isExecutable' must be a boolean.`);
+    }
+    if ("currentBlocker" in record) {
+      invariant(typeof record.currentBlocker === "string", `Artifact '${key}.currentBlocker' must be a string.`);
+    }
+    if ("approvalState" in record) {
+      invariant(typeof record.approvalState === "string", `Artifact '${key}.approvalState' must be a string.`);
+    }
+    if ("idempotencyState" in record) {
+      invariant(typeof record.idempotencyState === "string", `Artifact '${key}.idempotencyState' must be a string.`);
+    }
+    if ("reconciliationState" in record) {
+      invariant(
+        ["none", "pending", "matched", "ambiguous", "failed"].includes(String(record.reconciliationState)),
+        `Artifact '${key}.reconciliationState' is invalid.`,
+      );
+    }
+    if ("nextSafeAction" in record) {
+      invariant(hasString(record.nextSafeAction), `Artifact '${key}.nextSafeAction' must be a string.`);
+    }
+    return;
+  }
+
+  if (key === "mesh.skill-certification") {
+    const record = asObject(data);
+    invariant(record, `Artifact '${key}' must be an object.`);
+    if ("totalSkills" in record) {
+      invariant(typeof record.totalSkills === "number", `Artifact '${key}.totalSkills' must be a number.`);
+    }
+    if ("passedSkills" in record) {
+      invariant(typeof record.passedSkills === "number", `Artifact '${key}.passedSkills' must be a number.`);
+    }
+    if ("failedSkills" in record) {
+      invariant(typeof record.failedSkills === "number", `Artifact '${key}.failedSkills' must be a number.`);
+    }
+    if ("items" in record) {
+      invariant(Array.isArray(record.items), `Artifact '${key}.items' must be an array.`);
+    }
+    return;
+  }
+
+  if (key === "diagnostics.reason-catalog") {
+    const record = asObject(data);
+    invariant(record, `Artifact '${key}' must be an object.`);
+    if ("probeMode" in record) {
+      invariant(
+        ["passive", "active", "write"].includes(String(record.probeMode)),
+        `Artifact '${key}.probeMode' is invalid.`,
+      );
+    }
+    if ("plane" in record) {
+      invariant(
+        ["research", "demo", "live"].includes(String(record.plane)),
+        `Artifact '${key}.plane' is invalid.`,
+      );
+    }
+    if ("items" in record) {
+      invariant(Array.isArray(record.items), `Artifact '${key}.items' must be an array.`);
     }
     return;
   }

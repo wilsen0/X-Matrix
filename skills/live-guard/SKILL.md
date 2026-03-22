@@ -14,6 +14,9 @@ produces: [operations.live-guard]
 preferred_handoffs: [idempotency-gate]
 repeatable: true
 artifact_version: 3
+contract_version: 1
+safety_class: read
+determinism: high
 standalone_command: "trademesh skills run live-guard \"<goal>\" --plane live"
 standalone_route: [portfolio-xray, market-scan, trade-thesis, hedge-planner, scenario-sim, policy-gate, live-guard]
 standalone_inputs: [goal]

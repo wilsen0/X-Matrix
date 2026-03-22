@@ -2,6 +2,7 @@ import { putArtifact } from "../../runtime/artifacts.js";
 import type {
   ApprovalTicket,
   ExecutionRecord,
+  OperatorBrief,
   OperatorSummaryV3,
   ReconciliationReport,
   RunStatus,
@@ -81,6 +82,28 @@ function computeLedgerSeq(execution: ExecutionRecord | null, idempotencyCheck: I
   return Math.max(...seqs);
 }
 
+function buildOperatorBrief(summary: OperatorSummaryV3): OperatorBrief {
+  const approvalState = summary.approval.ticketId
+    ? `approved(${summary.approval.approvedBy ?? "unknown"})`
+    : summary.approval.provided
+      ? "approve_flag_only"
+      : "missing";
+  const idempotencyState = summary.idempotency.checked
+    ? summary.idempotency.hitCount > 0
+      ? `checked(hit=${summary.idempotency.hitCount})`
+      : "checked(clean)"
+    : "unchecked";
+  return {
+    runId: summary.runId,
+    isExecutable: summary.isExecutable,
+    currentBlocker: summary.blockers[0] ?? "none",
+    approvalState,
+    idempotencyState,
+    reconciliationState: summary.reconciliation.state,
+    nextSafeAction: summary.nextSafeAction,
+  };
+}
+
 export default async function run(context: SkillContext): Promise<SkillOutput> {
   const status = runStatusFromInput(context);
   const execution = latestExecutionFromInput(context);
@@ -143,12 +166,19 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
     requiresHumanAction,
     generatedAt: now(),
   };
+  const brief = buildOperatorBrief(summary);
 
   putArtifact(context.artifacts, {
     key: "report.operator-summary",
     version: context.manifest.artifactVersion,
     producer: context.manifest.name,
     data: summary,
+  });
+  putArtifact(context.artifacts, {
+    key: "report.operator-brief",
+    version: context.manifest.artifactVersion,
+    producer: context.manifest.name,
+    data: brief,
   });
 
   return {
@@ -161,6 +191,7 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
       `Executable now: ${summary.isExecutable ? "yes" : "no"}.`,
       `Requires human action: ${summary.requiresHumanAction ? "yes" : "no"}.`,
       `Blockers: ${summary.blockers.length}.`,
+      `Primary blocker: ${brief.currentBlocker}.`,
       `Next safe action: ${summary.nextSafeAction}.`,
     ],
     constraints: {
@@ -183,10 +214,11 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
       allowedModules: [],
     },
     handoff: null,
-    producedArtifacts: ["report.operator-summary"],
+    producedArtifacts: ["report.operator-summary", "report.operator-brief"],
     consumedArtifacts: ["approval.ticket", "execution.idempotency-check", "execution.reconciliation"],
     metadata: {
       operatorSummary: summary,
+      operatorBrief: brief,
     },
     timestamp: now(),
   };

@@ -56,20 +56,25 @@ TradeMesh 更接近以下产品，而不是聊天助手：
 
 - 检查本地环境是否具备 plan / apply / execute 能力
 - 用 `doctor --probe active|write` 做主动探测，而不是只看静态配置
+- 用 `doctor --strict --strict-target plan|apply|execute` 作为自动化门禁
 - 让系统基于您的目标生成对冲方案
 - 用 `--symbol`、`--max-drawdown`、`--intent`、`--horizon` 显式约束目标
 - 查看每个 proposal 的可行动性、环境缺口和 policy 结果
+- 通过 `skills certify` 量化证明模块化 skill 的合同完整性与独立可执行性
 - 通过 `skills run <name>` 独立调用任意 skill 的 mini-workflow
 - 通过 `rehearse demo` 做标准化演练并生成 rehearsal receipt
 - 在 dry-run 模式下生成结构化命令预览
+- 用 `reconcile --until-settled` 自动循环收敛不确定执行状态
 - replay 一次 run 的完整链路
-- export 一份可阅读的 `report.md`、一份可集成的 `bundle.json`、以及 operator 视角的 `operator-summary.json`
+- export 一份可阅读的 `report.md`、一份可集成的 `bundle.json`、以及 operator 视角的 `operator-summary.json`（含六字段 first screen）
 
 典型命令如下：
 
 ```bash
 node dist/bin/trademesh.js doctor --probe active --plane demo
+node dist/bin/trademesh.js doctor --probe active --plane demo --strict --strict-target apply
 node dist/bin/trademesh.js skills graph
+node dist/bin/trademesh.js skills certify
 node dist/bin/trademesh.js skills run hedge-planner "hedge my BTC drawdown with demo first" --plane demo
 node dist/bin/trademesh.js plan "hedge my BTC drawdown with demo first" \
   --plane demo \
@@ -79,7 +84,7 @@ node dist/bin/trademesh.js plan "hedge my BTC drawdown with demo first" \
   --horizon swing
 node dist/bin/trademesh.js apply <run-id> --plane demo --proposal protective-put --approve --approved-by alice --execute
 node dist/bin/trademesh.js apply <run-id> --plane live --proposal protective-put --approve --approved-by alice --live-confirm YES_LIVE_EXECUTION --max-order-usd 500 --max-total-usd 1500 --execute
-node dist/bin/trademesh.js reconcile <run-id> --source auto --window-min 120
+node dist/bin/trademesh.js reconcile <run-id> --source auto --window-min 120 --until-settled --max-attempts 3 --interval-sec 5
 node dist/bin/trademesh.js rehearse demo --approve
 node dist/bin/trademesh.js replay <run-id>
 node dist/bin/trademesh.js export <run-id>
@@ -270,6 +275,7 @@ TradeMesh 采用 artifact handoff。当前关键 artifact 包括：
 - `report.md`
 - `bundle.json`
 - `operator-summary.json`
+- `report.operator-brief`（用于 replay/export 首屏的 6 字段摘要）
 
 前者适合阅读和审阅，后者适合归档和系统集成。
 
@@ -289,6 +295,14 @@ M2.5 在此基础上进一步收口可靠性：
 - `live` 执行增加强制门槛：  
   `--live-confirm YES_LIVE_EXECUTION --max-order-usd --max-total-usd`，并要求 15 分钟内 active doctor 结果
 
+M2.6 在保持 KISS 的前提下补齐了可运营细节：
+
+- `doctor` 失败探测统一为 `reasonCode`，并给出 `nextActionCmd`
+- `doctor --strict` 可直接作为 CI 或值班流程的阻断门禁
+- `reconcile --until-settled` 可自动循环收敛，减少人工重复执行
+- replay 与 export 共用 `operator-brief` 六字段首屏，避免“口径不一致”
+- `skills certify` 输出 `mesh.skill-certification`，把“模块化可独立工作”变成可量化证据
+
 ### 8.5 Standalone Skill Contract
 
 每个 skill 现在都有显式的 standalone 合同（route/input/output/capabilities）。
@@ -305,6 +319,16 @@ M2.5 在此基础上进一步收口可靠性：
 
 - `doctor --probe passive|active|write`：输出模块级健康状态和 probe receipts
 - `rehearse demo`：走固定演练路线并生成 `operations.rehearsal-plan` / `operations.rehearsal-receipt`
+
+### 8.8 Skill 合同认证（M2.6）
+
+系统新增 `skills certify` 命令，对每个 skill 做三类检查：
+
+- 合同完整性（manifest 必填字段）
+- standalone route 合法性（终点 skill 与依赖路由一致）
+- standalone 输出可用性（声明输出可由 route 产出）
+
+这让 TradeMesh 的创新点不再停留在“理念描述”，而是可以产出机器可验证报告。
 
 ## 9. 它现在是不是已经可以用
 

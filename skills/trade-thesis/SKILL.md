@@ -14,6 +14,9 @@ produces: [trade.thesis]
 preferred_handoffs: [hedge-planner]
 repeatable: false
 artifact_version: 3
+contract_version: 1
+safety_class: read
+determinism: high
 standalone_command: "trademesh skills run trade-thesis \"<goal>\""
 standalone_route: [portfolio-xray, market-scan, trade-thesis]
 standalone_inputs: [goal]

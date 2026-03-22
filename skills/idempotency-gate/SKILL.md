@@ -14,6 +14,9 @@ produces: [execution.idempotency-check]
 preferred_handoffs: [official-executor]
 repeatable: true
 artifact_version: 3
+contract_version: 1
+safety_class: read
+determinism: high
 standalone_command: "trademesh skills run idempotency-gate \"<goal>\" --plane demo"
 standalone_route: [portfolio-xray, market-scan, trade-thesis, hedge-planner, scenario-sim, policy-gate, approval-gate, official-executor, idempotency-gate]
 standalone_inputs: [goal]

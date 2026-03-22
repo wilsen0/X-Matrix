@@ -17,22 +17,26 @@ That flagship pack proves the runtime. It is not the whole product identity.
 
 For a single-document Chinese walkthrough of the product, runtime, safety model, user value, and current boundaries, see [PROJECT-INTRODUCTION.zh-CN.md](./PROJECT-INTRODUCTION.zh-CN.md).
 
-For supervised operations procedures (apply/reconcile/live guard/ledger recovery), see [docs/RUNBOOK-M2.5.md](./docs/RUNBOOK-M2.5.md).
+For supervised operations procedures (strict doctor/reconcile loop/live guard/ledger recovery), see [docs/RUNBOOK-M2.5.md](./docs/RUNBOOK-M2.5.md).
 
 ## Why this shape
 
 TradeMesh is optimized for operational clarity and operator trust:
 
 - `doctor --probe passive|active|write` surfaces module-level readiness with probe receipts
+- doctor probe failures are normalized into `reasonCode` + `nextActionCmd`
+- `doctor --strict --strict-target plan|apply|execute` can act as an automation gate
 - `skills inspect` and `skills graph` expose the mesh topology from skill manifests
+- `skills certify` quantifies contract integrity and standalone executability of every installed skill
 - `skills run <name>` executes a manifest-declared standalone mini-workflow per skill
 - `plan` produces ranked proposals, actionability labels, and a policy preview
 - `apply` keeps dry-run first and routes every write through `official-executor` with apply-only approval tickets
 - write intents use local v3 idempotency journal+snapshot checks before execute
 - `reconcile` converges ambiguous/pending write outcomes without replaying writes
+- `reconcile --until-settled` loops reconcile attempts until matched or max attempts
 - `rehearse demo` validates policy + executor with a deterministic rehearsal route
 - `replay` reconstructs the route, evidence, policy, and execution receipt
-- `export` materializes a run report, machine-readable bundle, and operator summary
+- `export` materializes a run report, machine-readable bundle, operator summary, and skill certification evidence
 
 ## Quick Start
 
@@ -40,13 +44,15 @@ TradeMesh is optimized for operational clarity and operator trust:
 npm install
 npm run build
 node dist/bin/trademesh.js doctor --probe active --plane demo
+node dist/bin/trademesh.js doctor --probe active --plane demo --strict --strict-target apply
 node dist/bin/trademesh.js skills ls
 node dist/bin/trademesh.js skills graph
+node dist/bin/trademesh.js skills certify
 node dist/bin/trademesh.js skills run hedge-planner "hedge my BTC drawdown with demo first" --plane demo
 node dist/bin/trademesh.js plan "hedge my BTC drawdown with demo first" --plane demo --symbol BTC --max-drawdown 4 --intent protect-downside --horizon swing
 node dist/bin/trademesh.js apply <run-id> --plane demo --proposal protective-put --approve --approved-by alice
 node dist/bin/trademesh.js apply <run-id> --plane live --proposal protective-put --approve --approved-by alice --live-confirm YES_LIVE_EXECUTION --max-order-usd 500 --max-total-usd 1500 --execute
-node dist/bin/trademesh.js reconcile <run-id> --source auto --window-min 120
+node dist/bin/trademesh.js reconcile <run-id> --source auto --window-min 120 --until-settled --max-attempts 3 --interval-sec 5
 node dist/bin/trademesh.js rehearse demo --approve
 node dist/bin/trademesh.js replay <run-id>
 node dist/bin/trademesh.js export <run-id>
@@ -56,10 +62,11 @@ pnpm test
 
 ## Core Commands
 
-- `trademesh doctor [--probe passive|active|write] [--plane research|demo|live] [--json]`
+- `trademesh doctor [--probe passive|active|write] [--plane research|demo|live] [--strict] [--strict-target plan|apply|execute] [--json]`
 - `trademesh demo "<goal>" [--plane research|demo|live] [--execute] [--symbol <CSV>] [--max-drawdown <number>] [--intent protect-downside|reduce-beta|de-risk] [--horizon intraday|swing|position] [--json]`
 - `trademesh skills ls|list`
 - `trademesh skills inspect <name> [--json]`
+- `trademesh skills certify [--json]`
 - `trademesh skills run <name> "<goal>" [--plane research|demo|live] [--symbol <CSV>] [--max-drawdown <number>] [--intent protect-downside|reduce-beta|de-risk] [--horizon intraday|swing|position] [--input <artifact.json>] [--json]`
 - `trademesh skills graph [--json]`
 - `trademesh runs list`
@@ -68,7 +75,7 @@ pnpm test
 - `trademesh rehearse demo [--execute] [--approve] [--json]`
 - `trademesh replay <run-id> [--skill <name>] [--json]`
 - `trademesh retry <run-id> [--json]`
-- `trademesh reconcile <run-id> [--source auto|client-id|fallback] [--window-min <n>] [--json]`
+- `trademesh reconcile <run-id> [--source auto|client-id|fallback] [--window-min <n>] [--until-settled] [--max-attempts <n>] [--interval-sec <n>] [--json]`
 - `trademesh export <run-id> [--format md|json] [--output <path>] [--json]`
 
 ## Structured Goal Intake
@@ -114,6 +121,8 @@ This makes planning more deterministic than the earlier prompt-only heuristics.
 
 - `doctor --probe active` runs read probes for market/account paths and records receipts
 - `doctor --probe write` runs write-path preflight checks without placing orders
+- `doctor` now emits `diagnostics.reason-catalog` style failures with normalized `reasonCode`
+- `doctor --strict --strict-target <phase>` returns a machine-checkable pass/fail gate
 - `rehearse demo` runs a deterministic operations route:
   - `env-probe -> market-probe -> account-probe -> diagnosis-synthesizer -> rehearsal-planner -> policy-gate -> official-executor`
 - rehearsal writes `operations.rehearsal-plan` and `operations.rehearsal-receipt` artifacts
@@ -124,9 +133,21 @@ This makes planning more deterministic than the earlier prompt-only heuristics.
 - `approval-gate` creates `approval.ticket` for supervised write execution
 - idempotent write hits are skipped as `skipped(idempotent-hit)`
 - `reconcile <run-id> --source auto|client-id|fallback --window-min <n>` updates `execution.reconciliation` and converges pending/ambiguous write state
+- `reconcile --until-settled --max-attempts <n> --interval-sec <n>` loops and appends per-attempt evidence until matched or max-attempt exit
 - `export` writes `report.md`, `bundle.json`, and `operator-summary.json`
+- `report.operator-brief` is now the single six-field operator first-screen source for replay/export
+- `bundle.json` now carries `mesh.skill-certification` for external proof of skill modularity
 - apply route now includes explicit guardrail chain:
   - `policy-gate -> approval-gate -> live-guard -> official-executor -> idempotency-gate -> operator-summarizer`
+
+## Skill Certification
+
+- `skills certify` evaluates each installed skill on three dimensions:
+  - contract completeness
+  - standalone route validity
+  - standalone outputs usability
+- the command emits a certification table and structured JSON output
+- certification summary is embedded in export bundles for operator/auditor handoff
 
 ## Hard Cutover
 
@@ -140,10 +161,12 @@ Use this sequence for a live demo:
 
 ```bash
 node dist/bin/trademesh.js doctor
+node dist/bin/trademesh.js doctor --probe active --plane demo --strict --strict-target apply
 node dist/bin/trademesh.js skills graph
+node dist/bin/trademesh.js skills certify
 node dist/bin/trademesh.js plan "hedge my BTC drawdown with demo first" --plane demo --symbol BTC --max-drawdown 4 --intent protect-downside --horizon swing
 node dist/bin/trademesh.js apply <run-id> --plane demo --proposal protective-put --approve --approved-by alice --execute
-node dist/bin/trademesh.js reconcile <run-id>
+node dist/bin/trademesh.js reconcile <run-id> --source auto --window-min 120 --until-settled --max-attempts 3 --interval-sec 5
 node dist/bin/trademesh.js replay <run-id>
 node dist/bin/trademesh.js export <run-id>
 ```

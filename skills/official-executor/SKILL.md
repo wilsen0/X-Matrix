@@ -14,6 +14,9 @@ produces: [execution.intent-bundle]
 preferred_handoffs: [replay]
 repeatable: false
 artifact_version: 3
+contract_version: 1
+safety_class: write
+determinism: high
 standalone_command: "trademesh skills run official-executor \"<goal>\""
 standalone_route: [portfolio-xray, market-scan, trade-thesis, hedge-planner, scenario-sim, policy-gate, official-executor]
 standalone_inputs: [goal]

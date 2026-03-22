@@ -10,6 +10,7 @@ import type {
   ExecutionResult,
   OkxCommandIntent,
   ProbeModuleName,
+  ProbeReasonCode,
   ProbeReceipt,
 } from "./types.js";
 
@@ -76,6 +77,65 @@ function summarizeOkxErrorPayload(payload: Record<string, unknown>): string {
     ? payload.msg.trim()
     : "okx CLI response contained a non-zero code";
   return `OKX response code=${code}: ${msg}`;
+}
+
+function classifyProbeReason(message: string): ProbeReasonCode {
+  const normalized = message.toLowerCase();
+  if (normalized.includes("not installed on path") || normalized.includes("enoent")) {
+    return "cli_missing";
+  }
+  if (normalized.includes("timed out") || normalized.includes("etimedout") || normalized.includes("timeout")) {
+    return "timeout";
+  }
+  if (
+    normalized.includes("unauthorized") ||
+    normalized.includes("auth") ||
+    normalized.includes("api key") ||
+    normalized.includes("permission denied") ||
+    normalized.includes("forbidden")
+  ) {
+    return "auth_failed";
+  }
+  if (
+    normalized.includes("429") ||
+    normalized.includes("rate limit") ||
+    normalized.includes("too many requests")
+  ) {
+    return "rate_limited";
+  }
+  if (normalized.includes("non-json") || normalized.includes("json")) {
+    return "schema_mismatch";
+  }
+  if (
+    normalized.includes("network") ||
+    normalized.includes("econnreset") ||
+    normalized.includes("connection reset") ||
+    normalized.includes("gateway timeout") ||
+    normalized.includes("status 502") ||
+    normalized.includes("status 503")
+  ) {
+    return "network_error";
+  }
+  return "unknown";
+}
+
+function nextActionForProbeReason(reasonCode: ProbeReasonCode, plane: ExecutionPlane): string {
+  if (reasonCode === "cli_missing") {
+    return `node dist/bin/trademesh.js doctor --probe active --plane ${plane}`;
+  }
+  if (reasonCode === "auth_failed") {
+    return `node dist/bin/trademesh.js doctor --probe active --plane ${plane}`;
+  }
+  if (reasonCode === "network_error" || reasonCode === "timeout") {
+    return `node dist/bin/trademesh.js doctor --probe active --plane ${plane}`;
+  }
+  if (reasonCode === "schema_mismatch") {
+    return `node dist/bin/trademesh.js doctor --probe active --plane ${plane}`;
+  }
+  if (reasonCode === "rate_limited") {
+    return `node dist/bin/trademesh.js doctor --probe active --plane ${plane}`;
+  }
+  return `node dist/bin/trademesh.js doctor --probe active --plane ${plane}`;
 }
 
 function detectOkxExecutionError(stdout: string, requiresWrite: boolean): string | null {
@@ -505,6 +565,7 @@ export function runOkxProbe(
   const startedAt = Date.now();
 
   if (!lookupOkxPath()) {
+    const reasonCode: ProbeReasonCode = "cli_missing";
     return {
       module,
       command,
@@ -513,6 +574,8 @@ export function runOkxProbe(
       durationMs: Date.now() - startedAt,
       stdout: "",
       stderr: "okx CLI is not installed on PATH.",
+      reasonCode,
+      nextActionCmd: nextActionForProbeReason(reasonCode, plane),
       message: "okx CLI is not installed on PATH.",
     };
   }
@@ -526,6 +589,8 @@ export function runOkxProbe(
   const stderr = result.stderr ?? "";
 
   if (result.error) {
+    const message = stderr || result.error.message;
+    const reasonCode = classifyProbeReason(message);
     return {
       module,
       command,
@@ -533,12 +598,16 @@ export function runOkxProbe(
       exitCode: result.status,
       durationMs,
       stdout,
-      stderr: stderr || result.error.message,
+      stderr: message,
+      reasonCode,
+      nextActionCmd: nextActionForProbeReason(reasonCode, plane),
       message: result.error.message,
     };
   }
 
   if (result.status !== 0) {
+    const message = stderr.trim() || "okx CLI returned a non-zero exit status.";
+    const reasonCode = classifyProbeReason(message);
     return {
       module,
       command,
@@ -547,7 +616,9 @@ export function runOkxProbe(
       durationMs,
       stdout,
       stderr,
-      message: stderr.trim() || "okx CLI returned a non-zero exit status.",
+      reasonCode,
+      nextActionCmd: nextActionForProbeReason(reasonCode, plane),
+      message,
     };
   }
 
@@ -555,6 +626,7 @@ export function runOkxProbe(
   try {
     parsed = JSON.parse(stdout);
   } catch {
+    const reasonCode: ProbeReasonCode = "schema_mismatch";
     return {
       module,
       command,
@@ -563,6 +635,8 @@ export function runOkxProbe(
       durationMs,
       stdout,
       stderr,
+      reasonCode,
+      nextActionCmd: nextActionForProbeReason(reasonCode, plane),
       message: "okx CLI returned non-JSON output.",
     };
   }
@@ -572,6 +646,8 @@ export function runOkxProbe(
     if ("code" in payload) {
       const responseCode = String(payload.code ?? "");
       if (responseCode !== "" && responseCode !== "0") {
+        const message = summarizeOkxErrorPayload(payload);
+        const reasonCode = classifyProbeReason(message);
         return {
           module,
           command,
@@ -580,7 +656,9 @@ export function runOkxProbe(
           durationMs,
           stdout,
           stderr,
-          message: summarizeOkxErrorPayload(payload),
+          reasonCode,
+          nextActionCmd: nextActionForProbeReason(reasonCode, plane),
+          message,
         };
       }
     }

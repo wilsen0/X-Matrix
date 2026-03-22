@@ -14,6 +14,9 @@ produces: [diagnostics.probes, goal.intake, portfolio.snapshot, portfolio.risk-p
 preferred_handoffs: [diagnosis-synthesizer]
 repeatable: true
 artifact_version: 3
+contract_version: 1
+safety_class: read
+determinism: medium
 standalone_command: "trademesh skills run account-probe \"<goal>\" --plane demo"
 standalone_route: [env-probe, market-probe, account-probe]
 standalone_inputs: [goal]

@@ -14,6 +14,9 @@ produces: [approval.ticket]
 preferred_handoffs: [official-executor]
 repeatable: true
 artifact_version: 3
+contract_version: 1
+safety_class: read
+determinism: high
 standalone_command: "trademesh skills run approval-gate \"<goal>\""
 standalone_route: [portfolio-xray, market-scan, trade-thesis, hedge-planner, scenario-sim, policy-gate, approval-gate]
 standalone_inputs: [goal]

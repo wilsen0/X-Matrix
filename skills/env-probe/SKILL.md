@@ -14,6 +14,9 @@ produces: [diagnostics.probes]
 preferred_handoffs: [market-probe]
 repeatable: true
 artifact_version: 3
+contract_version: 1
+safety_class: read
+determinism: medium
 standalone_command: "trademesh skills run env-probe \"<goal>\" --plane demo"
 standalone_route: [env-probe]
 standalone_inputs: [goal]

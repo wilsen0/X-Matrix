@@ -25,6 +25,9 @@ export interface SkillRuntimeSurface {
   standaloneInputs: SkillManifest["standaloneInputs"];
   standaloneOutputs: SkillManifest["standaloneOutputs"];
   requiredCapabilities: SkillManifest["requiredCapabilities"];
+  contractVersion: number;
+  safetyClass: SkillManifest["safetyClass"];
+  determinism: SkillManifest["determinism"];
 }
 
 export interface SkillGraphEdge {
@@ -73,6 +76,9 @@ function toSurface(manifest: SkillManifest): SkillRuntimeSurface {
     standaloneInputs: [...manifest.standaloneInputs],
     standaloneOutputs: [...manifest.standaloneOutputs],
     requiredCapabilities: [...manifest.requiredCapabilities],
+    contractVersion: manifest.contractVersion,
+    safetyClass: manifest.safetyClass,
+    determinism: manifest.determinism,
   };
 }
 

@@ -14,6 +14,9 @@ produces: [policy.plan-decision]
 preferred_handoffs: [official-executor]
 repeatable: false
 artifact_version: 3
+contract_version: 1
+safety_class: read
+determinism: high
 standalone_command: "trademesh skills run policy-gate \"<goal>\""
 standalone_route: [portfolio-xray, market-scan, trade-thesis, hedge-planner, scenario-sim, policy-gate]
 standalone_inputs: [goal]

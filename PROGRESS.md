@@ -4,9 +4,9 @@
 
 ## Current State
 
-- Version: `v0.4.0`
+- Version: `v0.4.1`
 - Product framing: `CLI Skill Mesh 2.0 for OKX`
-- Status: production-grade supervised execution M2.5 (`v3 hard cutover + reliability + supervised-live hardening`)
+- Status: production-grade supervised execution M2.6 (`KISS hardening for operator usability + modularity proof`)
 
 ## What Is Now Implemented
 
@@ -14,14 +14,20 @@
 
 - `doctor` now renders a readiness card
 - `doctor` now supports `--probe passive|active|write` and module-level probe receipts
+- `doctor` now supports `--strict --strict-target plan|apply|execute` for machine gate checks
+- probe failures are now normalized with `reasonCode` + `nextActionCmd`
+- `doctor` now emits reason catalog data for remediation automation
 - `demo "<goal>"` orchestrates `doctor -> skills graph -> plan -> apply -> replay`
 - `skills inspect <name>` exposes manifest-driven skill details
 - `skills graph` exposes the skill mesh topology
+- `skills certify` now verifies modular skill contracts and standalone executability
 - `skills run <name>` now executes manifest-declared standalone mini-workflows
 - `rehearse demo` now runs deterministic operations rehearsal route
 - `runs list` now shows structured run summaries
 - `reconcile <run-id>` now converges pending/ambiguous write outcomes with `--source auto|client-id|fallback` and `--window-min`
+- `reconcile --until-settled` now loops with bounded retries (`--max-attempts`, `--interval-sec`) and per-attempt evidence
 - `export <run-id>` now writes `report.md` + `bundle.json` + `operator-summary.json`
+- replay/export now share the same six-field `report.operator-brief` first-screen contract
 - `apply` now accepts live supervised flags:
   - `--live-confirm YES_LIVE_EXECUTION`
   - `--max-order-usd <n>`
@@ -83,9 +89,17 @@
 - `SkillManifest.standaloneInputs`
 - `SkillManifest.standaloneOutputs`
 - `SkillManifest.requiredCapabilities`
+- `SkillManifest.contractVersion`
+- `SkillManifest.safetyClass`
+- `SkillManifest.determinism`
 - `DoctorReport.probeMode`
 - `DoctorReport.modules`
 - `DoctorReport.probeReceipts`
+- `DoctorReport.strictTarget`
+- `DoctorReport.strictPass`
+- `ProbeReceipt.reasonCode`
+- `ProbeReceipt.nextActionCmd`
+- `ProbeReasonCatalog`
 - `RunRecord.routeKind`
 - `RunRecord.entrySkill`
 - `ExecutionRecord.approvalTicketId`
@@ -108,6 +122,9 @@
 - `RunRecord.requiresHumanAction`
 - `execution.idempotency-check`
 - `operations.live-guard`
+- `diagnostics.reason-catalog`
+- `report.operator-brief`
+- `mesh.skill-certification`
 
 ## Validation
 
@@ -138,6 +155,10 @@ Key verified flows:
 - live-guard blocking for missing supervised-live flags
 - reconcile fallback windowed matching
 - replay/export operator summary consistency
+- replay/export operator brief six-field consistency
+- doctor strict target gate behavior
+- reconcile until-settled bounded loop behavior
+- skills certify pass/fail behavior and error reason reporting
 - v3 hard-cutover rejection of v2 run/artifact envelopes
 
 ## What Still Matters Next

@@ -1,22 +1,24 @@
-# TradeMesh M2.5 Runbook
+# TradeMesh M2.6 Runbook
 
-This runbook covers supervised execution operations for `v3` runtime and artifacts.
+This runbook covers supervised execution operations for `v3` runtime and artifacts with M2.6 KISS hardening.
 
 ## 1. Pre-Apply Execute Checklist
 
 1. Verify runtime health:
-   - `node dist/bin/trademesh.js doctor --probe active --plane demo`
+   - `node dist/bin/trademesh.js doctor --probe active --plane demo --strict --strict-target apply`
 2. Verify candidate run:
    - `node dist/bin/trademesh.js replay <run-id>`
-3. Verify selected proposal is actionable and policy approved.
-4. Execute with explicit approval:
+3. Verify mesh contract integrity (once per release or deployment):
+   - `node dist/bin/trademesh.js skills certify`
+4. Verify selected proposal is actionable and policy approved.
+5. Execute with explicit approval:
    - `node dist/bin/trademesh.js apply <run-id> --plane demo --proposal <name> --approve --approved-by <operator> --execute`
-5. If blocked by idempotency/reconcile, do not rerun execute directly.
+6. If blocked by idempotency/reconcile, do not rerun execute directly.
 
 ## 2. Live Supervised Execute Checklist
 
 1. Active live probe must be fresh (<= 15 min):
-   - `node dist/bin/trademesh.js doctor --probe active --plane live`
+   - `node dist/bin/trademesh.js doctor --probe active --plane live --strict --strict-target execute`
 2. Execute with all required live flags:
    - `node dist/bin/trademesh.js apply <run-id> --plane live --proposal <name> --approve --approved-by <operator> --live-confirm YES_LIVE_EXECUTION --max-order-usd <n> --max-total-usd <n> --execute`
 3. If `operations.live-guard` is `blocked`, follow `nextAction` and retry only after remediation.
@@ -27,14 +29,18 @@ Use reconcile when latest apply execute reports `pending`/`ambiguous` or operato
 
 1. Auto mode (client-id first, then fallback):
    - `node dist/bin/trademesh.js reconcile <run-id> --source auto --window-min 120`
-2. Force client-id mode:
+2. Auto settle loop (recommended for routine ops):
+   - `node dist/bin/trademesh.js reconcile <run-id> --source auto --window-min 120 --until-settled --max-attempts 3 --interval-sec 5`
+3. Force client-id mode:
    - `node dist/bin/trademesh.js reconcile <run-id> --source client-id`
-3. Force fallback mode:
+4. Force fallback mode:
    - `node dist/bin/trademesh.js reconcile <run-id> --source fallback --window-min 60`
-4. Re-check operator state:
+5. Re-check operator state:
    - `node dist/bin/trademesh.js replay <run-id>`
-5. Export evidence pack:
+6. Export evidence pack:
    - `node dist/bin/trademesh.js export <run-id>`
+
+`--until-settled` only converges state. It does not auto-replay write intents.
 
 ## 4. Idempotency Ledger Files
 
@@ -67,7 +73,21 @@ If ledger files are corrupted or unreadable:
    - `rm -f .trademesh/ledgers/idempotency.v3.lock`
 4. Re-run `reconcile` first, then `apply`.
 
-## 7. Hard Cutover Notes
+## 7. Doctor Reason Catalog Use
+
+When `doctor --probe active` fails, use reason catalog fields:
+
+- `reasonCode`: `cli_missing | auth_failed | network_error | timeout | schema_mismatch | rate_limited | unknown`
+- `nextActionCmd`: suggested immediate remediation command
+
+Recommended loop:
+
+1. `node dist/bin/trademesh.js doctor --probe active --plane demo --strict --strict-target apply --json`
+2. Read `reasonCatalog.items[*]`
+3. Run each `nextActionCmd`
+4. Re-run doctor until strict pass
+
+## 8. Hard Cutover Notes
 
 - Runtime only accepts `RunRecord.version = 3`.
 - Runtime only accepts artifact envelopes `version = 3`.

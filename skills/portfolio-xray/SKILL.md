@@ -14,6 +14,9 @@ produces: [goal.intake, portfolio.snapshot, portfolio.risk-profile]
 preferred_handoffs: [market-scan]
 repeatable: false
 artifact_version: 3
+contract_version: 1
+safety_class: read
+determinism: medium
 standalone_command: "trademesh skills run portfolio-xray \"<goal>\""
 standalone_route: [portfolio-xray]
 standalone_inputs: [goal]
