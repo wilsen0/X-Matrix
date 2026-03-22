@@ -1,14 +1,12 @@
 import { existsSync, promises as fs } from "node:fs";
 import { join, resolve } from "node:path";
-import { executeIntent, inspectOkxEnvironment, runOkxJson } from "./okx.js";
+import { executeIntent, inspectOkxEnvironment } from "./okx.js";
 import { createArtifactStore, putArtifact } from "./artifacts.js";
 import { currentArtifactVersion } from "./artifact-schema.js";
 import { runExplicitRoute, runPlanningGraph } from "./graph-runtime.js";
 import { formatDrawdownPct } from "./goal-intake.js";
 import {
   claimWriteIntentForExecution,
-  deriveClientOrderRef,
-  fingerprintWriteIntent,
   IdempotencyLockError,
   loadIdempotencyLedger,
   markWriteIntentAmbiguous,
@@ -45,7 +43,6 @@ import type {
   OkxCommandIntent,
   OrderPlanStep,
   PolicyDecision,
-  ReconciliationItem,
   ReconciliationReport,
   RunErrorRecord,
   RunRecord,
@@ -1064,7 +1061,7 @@ export async function createPlan(goal: string, options: PlanOptions): Promise<Ru
     createdAt: now(),
     updatedAt: now(),
   });
-  putOperatorSummaryArtifact(artifacts, record, "rehearse-runtime");
+  putOperatorSummaryArtifact(artifacts, record, "plan-runtime");
 
   await saveRun(record);
   await saveArtifactSnapshot(runId, artifacts.snapshot());
@@ -1536,159 +1533,6 @@ export async function retryRun(runId: string): Promise<RunRecord> {
 
   await saveRun(nextRecord);
   return nextRecord;
-}
-
-function readIntentFlag(intent: OkxCommandIntent, flagName: string): string | undefined {
-  for (let index = 0; index < intent.args.length; index += 1) {
-    const token = intent.args[index];
-    if (token !== `--${flagName}`) {
-      continue;
-    }
-    const next = intent.args[index + 1];
-    if (!next || next.startsWith("--")) {
-      return undefined;
-    }
-    return next;
-  }
-  return undefined;
-}
-
-function toFiniteNumber(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === "string") {
-    const parsed = Number(value.replace(/,/g, "").trim());
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-  return null;
-}
-
-function orderRows(payload: unknown): Array<Record<string, unknown>> {
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-    return [];
-  }
-  const record = payload as { data?: unknown };
-  if (!Array.isArray(record.data)) {
-    return [];
-  }
-  return record.data
-    .filter((entry) => entry && typeof entry === "object" && !Array.isArray(entry))
-    .map((entry) => entry as Record<string, unknown>);
-}
-
-function orderTimestampMs(order: Record<string, unknown>): number | null {
-  const value = toFiniteNumber(order.cTime) ?? toFiniteNumber(order.uTime) ?? toFiniteNumber(order.ts);
-  if (value === null) {
-    return null;
-  }
-  if (value > 10_000_000_000) {
-    return value;
-  }
-  return value * 1_000;
-}
-
-async function reconcileWriteIntent(
-  intent: OkxCommandIntent,
-  plane: ExecutionPlane,
-): Promise<{
-  status: ReconciliationItem["status"];
-  remoteOrderId?: string;
-  reason: string;
-  evidence: string[];
-}> {
-  const evidence: string[] = [];
-  const clientOrderRef = deriveClientOrderRef(intent);
-  if (clientOrderRef) {
-    const byClient = runOkxJson<unknown>(["trade", "orders-history", "--clOrdId", clientOrderRef], plane);
-    evidence.push(`client-order-id query: ${byClient.command}`);
-    if (byClient.ok) {
-      const rows = orderRows(byClient.data);
-      if (rows.length === 1) {
-        const ordId = rows[0].ordId;
-        return {
-          status: "matched",
-          remoteOrderId: typeof ordId === "string" ? ordId : undefined,
-          reason: "Matched by clientOrderRef.",
-          evidence,
-        };
-      }
-      if (rows.length > 1) {
-        return {
-          status: "ambiguous",
-          reason: "Multiple remote orders matched the same clientOrderRef.",
-          evidence,
-        };
-      }
-    } else {
-      evidence.push(`client-order-id query failed: ${byClient.reason ?? "unknown error"}`);
-    }
-  } else {
-    evidence.push("clientOrderRef missing; fallback matching required.");
-  }
-
-  const instId = readIntentFlag(intent, "instId");
-  const side = (readIntentFlag(intent, "side") ?? "").toLowerCase();
-  const sz = toFiniteNumber(readIntentFlag(intent, "sz"));
-  if (!instId) {
-    return {
-      status: "failed",
-      reason: "Intent missing --instId; fallback reconciliation is unavailable.",
-      evidence,
-    };
-  }
-
-  const fallback = runOkxJson<unknown>(["trade", "orders-history", "--instId", instId], plane);
-  evidence.push(`fallback query: ${fallback.command}`);
-  if (!fallback.ok) {
-    return {
-      status: "failed",
-      reason: `Fallback query failed: ${fallback.reason ?? "unknown error"}`,
-      evidence,
-    };
-  }
-
-  const nowMs = Date.now();
-  const windowMs = 2 * 60 * 60 * 1_000;
-  const candidates = orderRows(fallback.data).filter((row) => {
-    const rowSide = typeof row.side === "string" ? row.side.toLowerCase() : "";
-    if (side && rowSide && rowSide !== side) {
-      return false;
-    }
-    const rowSz = toFiniteNumber(row.sz);
-    if (sz !== null && rowSz !== null && Math.abs(rowSz - sz) > 1e-8) {
-      return false;
-    }
-    const ts = orderTimestampMs(row);
-    if (ts !== null && Math.abs(nowMs - ts) > windowMs) {
-      return false;
-    }
-    return true;
-  });
-
-  if (candidates.length === 1) {
-    const ordId = candidates[0].ordId;
-    return {
-      status: "matched",
-      remoteOrderId: typeof ordId === "string" ? ordId : undefined,
-      reason: "Matched by fallback fields (instId+side+size+time-window).",
-      evidence,
-    };
-  }
-  if (candidates.length > 1) {
-    return {
-      status: "ambiguous",
-      reason: "Fallback matching returned multiple candidates.",
-      evidence,
-    };
-  }
-  return {
-    status: "failed",
-    reason: "No remote order matched by client-order-id or fallback fields.",
-    evidence,
-  };
 }
 
 export async function reconcileRun(runId: string, options: ReconcileOptions = {}): Promise<RunRecord> {
@@ -2247,6 +2091,10 @@ function buildOperatorSummary(record: RunRecord, artifacts: ArtifactStore): Oper
   };
 }
 
+function operatorSummaryOrFallback(record: RunRecord, artifacts: ArtifactStore): OperatorSummaryV3 {
+  return artifacts.get<OperatorSummaryV3>("report.operator-summary")?.data ?? buildOperatorSummary(record, artifacts);
+}
+
 function putOperatorSummaryArtifact(
   artifacts: ArtifactStore,
   record: RunRecord,
@@ -2499,9 +2347,7 @@ function exportBundlePayload(record: RunRecord, artifacts: ArtifactStore): Recor
   const latestExecution = record.executions.at(-1) ?? null;
   const approvalTicket = latestApprovalTicket(artifacts);
   const reconciliationSummary = latestReconciliation(artifacts);
-  const operatorSummary =
-    (artifacts.get<Record<string, unknown>>("report.operator-summary")?.data ??
-      buildOperatorSummary(record, artifacts)) as unknown as Record<string, unknown>;
+  const operatorSummary = operatorSummaryOrFallback(record, artifacts);
 
   return {
     runId: record.id,
@@ -2539,15 +2385,9 @@ function exportReport(record: RunRecord, artifacts: ArtifactStore): string {
   const goalIntake = goalIntakeFromArtifacts(artifacts) ?? traceGoalIntake(record);
   const latestExecution = record.executions.at(-1);
   const selectedProposal = record.selectedProposal ?? preferredProposalName(record.proposals);
-  const operatorSummary =
-    artifacts.get<Record<string, unknown>>("report.operator-summary")?.data ??
-    buildOperatorSummary(record, artifacts);
-  const operatorBlockers = Array.isArray(operatorSummary.blockers)
-    ? operatorSummary.blockers.filter((entry): entry is string => typeof entry === "string")
-    : [];
-  const operatorNextAction = typeof operatorSummary.nextSafeAction === "string"
-    ? operatorSummary.nextSafeAction
-    : "node dist/bin/trademesh.js replay <run-id>";
+  const operatorSummary = operatorSummaryOrFallback(record, artifacts);
+  const operatorBlockers = operatorSummary.blockers;
+  const operatorNextAction = operatorSummary.nextSafeAction;
   const approvalTicket = latestApprovalTicket(artifacts);
   const reconcile = latestReconciliation(artifacts);
   return [
@@ -2608,7 +2448,7 @@ export async function exportRun(runId: string, options: ExportOptions = {}): Pro
   const paths = exportPaths(runId, options.outputPath);
   await fs.mkdir(paths.outputDir, { recursive: true });
 
-  let operatorSummary: OperatorSummaryV3 | Record<string, unknown>;
+  let operatorSummary: OperatorSummaryV3;
   if (operatorManifest) {
     await executeSkill(operatorManifest, {
       runId: record.id,
@@ -2624,9 +2464,7 @@ export async function exportRun(runId: string, options: ExportOptions = {}): Pro
       },
       sharedState,
     });
-    operatorSummary =
-      artifacts.get<Record<string, unknown>>("report.operator-summary")?.data ??
-      buildOperatorSummary(record, artifacts);
+    operatorSummary = operatorSummaryOrFallback(record, artifacts);
   } else {
     operatorSummary = putOperatorSummaryArtifact(artifacts, record, "export-runtime");
   }

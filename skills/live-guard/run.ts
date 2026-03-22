@@ -70,6 +70,23 @@ function policyDecision(context: SkillContext): PolicyDecision {
   );
 }
 
+function approvalProvided(context: SkillContext): boolean {
+  return context.runtimeInput.approvalProvided === true || context.runtimeInput.approve === true;
+}
+
+function applyCommand(runId: string, plane: SkillContext["plane"], extra: string[] = []): string {
+  return [
+    "node dist/bin/trademesh.js apply",
+    runId,
+    "--plane",
+    plane,
+    "--approve",
+    "--approved-by <name>",
+    ...extra,
+    "--execute",
+  ].join(" ");
+}
+
 function nextActionForReasons(
   runId: string,
   plane: SkillContext["plane"],
@@ -80,18 +97,23 @@ function nextActionForReasons(
   }
 
   if (reasons.some((reason) => reason.includes("--live-confirm"))) {
-    return `node dist/bin/trademesh.js apply ${runId} --plane ${plane} --approve --approved-by <name> --live-confirm YES_LIVE_EXECUTION --max-order-usd <n> --max-total-usd <n> --execute`;
+    return applyCommand(runId, plane, [
+      "--live-confirm YES_LIVE_EXECUTION",
+      "--max-order-usd <n>",
+      "--max-total-usd <n>",
+    ]);
   }
 
-  return `node dist/bin/trademesh.js apply ${runId} --plane ${plane} --approve --approved-by <name> --execute`;
+  return applyCommand(runId, plane);
 }
 
 export default async function run(context: SkillContext): Promise<SkillOutput> {
   const executeRequested = context.runtimeInput.executeRequested === true;
+  const liveExecute = context.plane === "live" && executeRequested;
   const policy = policyDecision(context);
   const goalIntake = context.artifacts.get<GoalIntake>("goal.intake")?.data;
   const approvedBy = typeof context.runtimeInput.approvedBy === "string" && context.runtimeInput.approvedBy.trim().length > 0;
-  const approvalFlag = context.runtimeInput.approvalProvided === true || context.runtimeInput.approve === true;
+  const approvalFlag = approvalProvided(context);
   const liveConfirm = context.runtimeInput.liveConfirm === "YES_LIVE_EXECUTION";
   const maxOrderUsd = toPositiveNumber(context.runtimeInput.maxOrderUsd);
   const maxTotalUsd = toPositiveNumber(context.runtimeInput.maxTotalUsd);
@@ -99,7 +121,7 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
   const doctorFresh = recentEnough(doctorCheckedAt, 15 * 60 * 1_000);
   const reasons: string[] = [];
 
-  if (context.plane === "live" && executeRequested) {
+  if (liveExecute) {
     if (!approvalFlag) {
       reasons.push("live execute requires --approve.");
     }
@@ -137,7 +159,7 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
     reasons,
     nextAction: reasons.length > 0
       ? nextActionForReasons(context.runId, context.plane, reasons)
-      : `node dist/bin/trademesh.js apply ${context.runId} --plane ${context.plane} --approve --approved-by <name> --execute`,
+      : applyCommand(context.runId, context.plane),
     checks: {
       approveFlag: approvalFlag,
       approvedBy,

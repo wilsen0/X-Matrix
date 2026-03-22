@@ -521,6 +521,29 @@ async function appendAndApplyEvent(
   return event;
 }
 
+interface PendingEventInput {
+  fingerprint: string;
+  intent: OkxCommandIntent;
+  runId: string;
+  proposal: string;
+  plane: ExecutionPlane;
+}
+
+function pendingWriteEvent(input: PendingEventInput): Omit<IdempotencyEvent, "seq" | "at"> {
+  return {
+    kind: "pending",
+    fingerprint: input.fingerprint,
+    intentId: input.intent.intentId,
+    runId: input.runId,
+    proposal: input.proposal,
+    plane: input.plane,
+    module: input.intent.module,
+    requiresWrite: input.intent.requiresWrite,
+    clientOrderRef: deriveClientOrderRef(input.intent),
+    command: input.intent.command,
+  };
+}
+
 export async function loadIdempotencyLedger(): Promise<IdempotencyLedger> {
   await ensureLedgerDirectory();
   const state = await loadStateFromDisk(ledgerPaths());
@@ -579,18 +602,7 @@ export async function markWriteIntentPending(input: {
   plane: ExecutionPlane;
 }): Promise<IdempotencyLedgerEntry> {
   return withLedgerMutation(async (context) => {
-    await appendAndApplyEvent(context, {
-      kind: "pending",
-      fingerprint: input.fingerprint,
-      intentId: input.intent.intentId,
-      runId: input.runId,
-      proposal: input.proposal,
-      plane: input.plane,
-      module: input.intent.module,
-      requiresWrite: input.intent.requiresWrite,
-      clientOrderRef: deriveClientOrderRef(input.intent),
-      command: input.intent.command,
-    });
+    await appendAndApplyEvent(context, pendingWriteEvent(input));
 
     const entry = context.ledger.entries[input.fingerprint];
     if (!entry) {
@@ -631,18 +643,13 @@ export async function claimWriteIntentForExecution(input: {
       };
     }
 
-    await appendAndApplyEvent(context, {
-      kind: "pending",
+    await appendAndApplyEvent(context, pendingWriteEvent({
       fingerprint,
-      intentId: input.intent.intentId,
+      intent: input.intent,
       runId: input.runId,
       proposal: input.proposal,
       plane: input.plane,
-      module: input.intent.module,
-      requiresWrite: input.intent.requiresWrite,
-      clientOrderRef: deriveClientOrderRef(input.intent),
-      command: input.intent.command,
-    });
+    }));
     const entry = context.ledger.entries[fingerprint];
     if (!entry) {
       throw new Error(`Failed to claim write intent '${input.intent.intentId}' for execution.`);
