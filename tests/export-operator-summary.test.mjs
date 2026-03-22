@@ -29,6 +29,7 @@ test("export emits operator-summary.json and operator-focused fields in bundle",
     assert.ok("idempotencySummary" in bundle);
     assert.ok("reconciliationSummary" in bundle);
     assert.ok("operatorSummary" in bundle);
+    assert.ok("meshRouteProof" in bundle);
     assert.equal(typeof operatorSummary.isExecutable, "boolean");
     assert.equal(typeof operatorSummary.nextSafeAction, "string");
   });

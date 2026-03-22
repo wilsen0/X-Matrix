@@ -1,5 +1,5 @@
 import { existsSync, promises as fs } from "node:fs";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { getProjectPaths } from "./paths.js";
 import type {
@@ -7,6 +7,7 @@ import type {
   SkillDeterminism,
   SkillHandler,
   SkillManifest,
+  SkillProofClass,
   SkillRole,
   SkillSafetyClass,
 } from "./types.js";
@@ -139,6 +140,14 @@ function normalizeManifest(path: string, fields: Record<string, FrontmatterValue
     typeof fields.determinism === "string"
       ? (fields.determinism as SkillDeterminism)
       : "medium";
+  const proofClass =
+    typeof fields.proof_class === "string"
+      ? (fields.proof_class as SkillProofClass)
+      : "structural";
+  const proofGoal = typeof fields.proof_goal === "string" ? fields.proof_goal.trim() : undefined;
+  const proofFixtureRaw = typeof fields.proof_fixture === "string" ? fields.proof_fixture.trim() : undefined;
+  const proofTargetOutputs = parseListValue(fields.proof_target_outputs) as ArtifactKey[];
+  const proofFixture = proofFixtureRaw ? resolve(dirname(path), proofFixtureRaw) : undefined;
 
   assertManifest(standaloneRoute.length > 0, "standalone_route must be non-empty", path);
   assertManifest(
@@ -165,6 +174,16 @@ function normalizeManifest(path: string, fields: Record<string, FrontmatterValue
     "determinism must be one of high|medium|low",
     path,
   );
+  assertManifest(
+    proofClass === "portable" || proofClass === "structural",
+    "proof_class must be one of portable|structural",
+    path,
+  );
+  if (proofClass === "portable") {
+    assertManifest(Boolean(proofGoal), "proof_goal is required for portable skills", path);
+    assertManifest(Boolean(proofFixture), "proof_fixture is required for portable skills", path);
+    assertManifest(proofTargetOutputs.length > 0, "proof_target_outputs must be non-empty for portable skills", path);
+  }
 
   return {
     name,
@@ -204,6 +223,10 @@ function normalizeManifest(path: string, fields: Record<string, FrontmatterValue
     contractVersion,
     safetyClass,
     determinism,
+    proofClass,
+    proofGoal,
+    proofFixture,
+    proofTargetOutputs,
     path,
   };
 }

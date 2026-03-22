@@ -17,6 +17,10 @@ artifact_version: 3
 contract_version: 1
 safety_class: write
 determinism: high
+proof_class: portable
+proof_goal: "portable proof official executor"
+proof_fixture: ./proof/input.artifacts.json
+proof_target_outputs: [execution.intent-bundle]
 standalone_command: "trademesh skills run official-executor \"<goal>\""
 standalone_route: [portfolio-xray, market-scan, trade-thesis, hedge-planner, scenario-sim, policy-gate, official-executor]
 standalone_inputs: [goal]

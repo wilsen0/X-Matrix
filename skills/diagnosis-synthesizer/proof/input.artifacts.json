@@ -1,0 +1,27 @@
+{
+  "diagnostics.probes": {
+    "key": "diagnostics.probes",
+    "version": 3,
+    "producer": "proof-fixture",
+    "createdAt": "2026-03-22T00:00:00.000Z",
+    "ruleRefs": [],
+    "doctrineRefs": [],
+    "data": {
+      "probeMode": "active",
+      "plane": "demo",
+      "capabilitySnapshot": {
+        "okxCliAvailable": true,
+        "configPath": "profiles",
+        "configExists": true,
+        "demoProfileLikelyConfigured": true,
+        "liveProfileLikelyConfigured": false,
+        "readinessGrade": "B",
+        "blockers": [],
+        "recommendedPlane": "demo",
+        "warnings": []
+      },
+      "probeReceipts": [],
+      "notes": []
+    }
+  }
+}

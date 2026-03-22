@@ -5,10 +5,18 @@ import { loadSkillRegistry } from "../dist/runtime/registry.js";
 
 test("skills certify includes all installed skills and passes current contracts", async () => {
   const certification = await certifySkills();
-  assert.equal(certification.report.totalSkills, 18);
-  assert.equal(certification.report.items.length, 18);
+  assert.equal(certification.report.totalSkills, 19);
+  assert.equal(certification.report.items.length, 19);
   assert.equal(certification.report.failedSkills, 0);
+  assert.equal(certification.report.portableSkills, 11);
+  assert.equal(certification.report.structuralSkills, 8);
+  assert.equal(certification.report.portableProofPassed, 11);
   assert.ok(certification.summary.includes("TradeMesh Skills Certification"));
+  const thesis = certification.report.items.find((item) => item.skill === "trade-thesis");
+  assert.ok(thesis);
+  assert.equal(thesis.proofPassed, true);
+  assert.equal(thesis.proofMode, "fixture-route");
+  assert.equal(thesis.rerunnable, true);
 });
 
 test("skills certify returns explicit failures for invalid manifest contract and route", async () => {

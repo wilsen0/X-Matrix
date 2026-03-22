@@ -17,6 +17,7 @@ artifact_version: 3
 contract_version: 1
 safety_class: read
 determinism: medium
+proof_class: structural
 standalone_command: "trademesh skills run account-probe \"<goal>\" --plane demo"
 standalone_route: [env-probe, market-probe, account-probe]
 standalone_inputs: [goal]

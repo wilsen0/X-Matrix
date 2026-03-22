@@ -6,7 +6,7 @@
 
 - Version: `v0.4.1`
 - Product framing: `CLI Skill Mesh 2.0 for OKX`
-- Status: production-grade supervised execution M2.6 (`KISS hardening for operator usability + modularity proof`)
+- Status: production-grade supervised execution M2.7 (`proof-carrying mesh: resumable routes + executable skill proofs`)
 
 ## What Is Now Implemented
 
@@ -20,14 +20,17 @@
 - `demo "<goal>"` orchestrates `doctor -> skills graph -> plan -> apply -> replay`
 - `skills inspect <name>` exposes manifest-driven skill details
 - `skills graph` exposes the skill mesh topology
-- `skills certify` now verifies modular skill contracts and standalone executability
+- `skills certify` now verifies modular skill contracts and portable fixture proofs
+- `skills certify --strict` can now serve as a release gate
 - `skills run <name>` now executes manifest-declared standalone mini-workflows
+- `skills run --skip-satisfied` now supports artifact-based route resume/proof mode
 - `rehearse demo` now runs deterministic operations rehearsal route
 - `runs list` now shows structured run summaries
 - `reconcile <run-id>` now converges pending/ambiguous write outcomes with `--source auto|client-id|fallback` and `--window-min`
 - `reconcile --until-settled` now loops with bounded retries (`--max-attempts`, `--interval-sec`) and per-attempt evidence
 - `export <run-id>` now writes `report.md` + `bundle.json` + `operator-summary.json`
 - replay/export now share the same six-field `report.operator-brief` first-screen contract
+- replay/export now render `mesh.route-proof` as a first-class proof layer
 - `apply` now accepts live supervised flags:
   - `--live-confirm YES_LIVE_EXECUTION`
   - `--max-order-usd <n>`
@@ -102,6 +105,11 @@
 - `ProbeReasonCatalog`
 - `RunRecord.routeKind`
 - `RunRecord.entrySkill`
+- `SkillManifest.proofClass`
+- `SkillManifest.proofGoal`
+- `SkillManifest.proofFixture`
+- `SkillManifest.proofTargetOutputs`
+- `RouteProof`
 - `ExecutionRecord.approvalTicketId`
 - `ExecutionRecord.idempotencyChecked`
 - `ExecutionRecord.reconciliationState`
@@ -125,6 +133,7 @@
 - `diagnostics.reason-catalog`
 - `report.operator-brief`
 - `mesh.skill-certification`
+- `mesh.route-proof`
 
 ## Validation
 
@@ -145,6 +154,7 @@ Key verified flows:
 - hedge ranking + scenario ranking
 - write intents never auto-retry even on retryable-looking errors
 - skills run standalone routes (including replay source-run targeting)
+- skills run resume mode (`--skip-satisfied`) with explicit proof output
 - doctor passive/active/write probe modes
 - rehearse demo dry-run/execute with rehearsal artifacts
 - apply execute approval gate (`--approved-by`) and approval ticket persistence
@@ -159,6 +169,9 @@ Key verified flows:
 - doctor strict target gate behavior
 - reconcile until-settled bounded loop behavior
 - skills certify pass/fail behavior and error reason reporting
+- skills certify portable fixture proofs and rerun commands
+- mesh.route-proof generation across plan/apply/reconcile/replay/rehearse
+- replay/export mesh proof consistency
 - v3 hard-cutover rejection of v2 run/artifact envelopes
 
 ## What Still Matters Next

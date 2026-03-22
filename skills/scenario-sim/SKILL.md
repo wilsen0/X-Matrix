@@ -17,6 +17,10 @@ artifact_version: 3
 contract_version: 1
 safety_class: read
 determinism: high
+proof_class: portable
+proof_goal: "portable proof scenario sim"
+proof_fixture: ./proof/input.artifacts.json
+proof_target_outputs: [planning.scenario-matrix]
 standalone_command: "trademesh skills run scenario-sim \"<goal>\""
 standalone_route: [portfolio-xray, market-scan, trade-thesis, hedge-planner, scenario-sim]
 standalone_inputs: [goal]

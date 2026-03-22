@@ -17,6 +17,7 @@ artifact_version: 3
 contract_version: 1
 safety_class: read
 determinism: high
+proof_class: structural
 standalone_command: "trademesh skills run replay \"<goal>\" --input <run-id>"
 standalone_route: [replay]
 standalone_inputs: [run-id]

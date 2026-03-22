@@ -30,6 +30,7 @@ export type ArtifactKey =
   | "report.operator-summary"
   | "report.operator-brief"
   | "mesh.skill-certification"
+  | "mesh.route-proof"
   | "diagnostics.probes"
   | "diagnostics.readiness"
   | "diagnostics.reason-catalog"
@@ -85,6 +86,7 @@ export type ProbeModuleName =
 export type ProbeModuleLevel = "ready" | "degraded" | "blocked";
 export type SkillSafetyClass = "read" | "write" | "mixed";
 export type SkillDeterminism = "high" | "medium" | "low";
+export type SkillProofClass = "portable" | "structural";
 
 export interface ArtifactReference {
   key: ArtifactKey;
@@ -343,11 +345,52 @@ export interface OperatorBrief {
   nextSafeAction: string;
 }
 
+export interface RouteProofMinimality {
+  passed: boolean;
+  redundantSkills: string[];
+  reason: string;
+}
+
+export interface RouteProofStep {
+  skill: string;
+  disposition: "executed" | "skipped_satisfied";
+  consumes: ArtifactKey[];
+  produces: ArtifactKey[];
+  unlockedNext: string[];
+  standaloneRunnable: boolean;
+  rerunCommand?: string;
+  reason: string;
+}
+
+export interface RouteResumePoint {
+  skill: string;
+  requiredArtifacts: ArtifactKey[];
+  rerunCommand: string;
+}
+
+export interface RouteProof {
+  runId: string;
+  routeKind: "workflow" | "standalone" | "operations";
+  route: string[];
+  targetOutputs: ArtifactKey[];
+  proofPassed: boolean;
+  minimality: RouteProofMinimality;
+  steps: RouteProofStep[];
+  resumePoints: RouteResumePoint[];
+  generatedAt: string;
+}
+
 export interface SkillCertificationItem {
   skill: string;
   contractComplete: boolean;
   standaloneRouteValid: boolean;
   standaloneOutputsUsable: boolean;
+  proofClass: SkillProofClass;
+  proofPassed: boolean;
+  proofMode: "static" | "fixture-route";
+  rerunnable: boolean;
+  proofFailure?: string;
+  rerunCommand?: string;
   passed: boolean;
   failures: string[];
 }
@@ -357,6 +400,10 @@ export interface SkillCertificationReport {
   totalSkills: number;
   passedSkills: number;
   failedSkills: number;
+  portableSkills: number;
+  structuralSkills: number;
+  portableProofPassed: number;
+  rerunnableSkills: number;
   items: SkillCertificationItem[];
 }
 
@@ -385,6 +432,10 @@ export interface SkillManifest {
   contractVersion: number;
   safetyClass: SkillSafetyClass;
   determinism: SkillDeterminism;
+  proofClass: SkillProofClass;
+  proofGoal?: string;
+  proofFixture?: string;
+  proofTargetOutputs: ArtifactKey[];
 }
 
 export interface SkillProposal {

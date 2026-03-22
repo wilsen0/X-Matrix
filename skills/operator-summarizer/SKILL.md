@@ -17,6 +17,10 @@ artifact_version: 3
 contract_version: 1
 safety_class: read
 determinism: high
+proof_class: portable
+proof_goal: "portable proof operator summarizer"
+proof_fixture: ./proof/input.artifacts.json
+proof_target_outputs: [report.operator-summary, report.operator-brief]
 standalone_command: "trademesh skills run operator-summarizer \"<goal>\" --plane demo"
 standalone_route: [operator-summarizer]
 standalone_inputs: [goal]

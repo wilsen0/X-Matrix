@@ -17,6 +17,10 @@ artifact_version: 3
 contract_version: 1
 safety_class: read
 determinism: high
+proof_class: portable
+proof_goal: "portable proof diagnosis synthesis"
+proof_fixture: ./proof/input.artifacts.json
+proof_target_outputs: [diagnostics.readiness, diagnostics.reason-catalog]
 standalone_command: "trademesh skills run diagnosis-synthesizer \"<goal>\" --plane demo"
 standalone_route: [env-probe, market-probe, account-probe, diagnosis-synthesizer]
 standalone_inputs: [goal]

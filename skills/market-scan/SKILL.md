@@ -17,6 +17,7 @@ artifact_version: 3
 contract_version: 1
 safety_class: read
 determinism: medium
+proof_class: structural
 standalone_command: "trademesh skills run market-scan \"<goal>\""
 standalone_route: [portfolio-xray, market-scan]
 standalone_inputs: [goal]

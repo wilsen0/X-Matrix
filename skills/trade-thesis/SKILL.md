@@ -17,6 +17,10 @@ artifact_version: 3
 contract_version: 1
 safety_class: read
 determinism: high
+proof_class: portable
+proof_goal: "portable proof trade thesis"
+proof_fixture: ./proof/input.artifacts.json
+proof_target_outputs: [trade.thesis]
 standalone_command: "trademesh skills run trade-thesis \"<goal>\""
 standalone_route: [portfolio-xray, market-scan, trade-thesis]
 standalone_inputs: [goal]

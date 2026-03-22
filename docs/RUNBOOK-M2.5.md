@@ -1,6 +1,6 @@
-# TradeMesh M2.6 Runbook
+# TradeMesh M2.7 Runbook
 
-This runbook covers supervised execution operations for `v3` runtime and artifacts with M2.6 KISS hardening.
+This runbook covers supervised execution operations for `v3` runtime and artifacts with M2.7 proof-carrying mesh hardening.
 
 ## 1. Pre-Apply Execute Checklist
 
@@ -9,7 +9,7 @@ This runbook covers supervised execution operations for `v3` runtime and artifac
 2. Verify candidate run:
    - `node dist/bin/trademesh.js replay <run-id>`
 3. Verify mesh contract integrity (once per release or deployment):
-   - `node dist/bin/trademesh.js skills certify`
+   - `node dist/bin/trademesh.js skills certify --strict`
 4. Verify selected proposal is actionable and policy approved.
 5. Execute with explicit approval:
    - `node dist/bin/trademesh.js apply <run-id> --plane demo --proposal <name> --approve --approved-by <operator> --execute`
@@ -42,13 +42,27 @@ Use reconcile when latest apply execute reports `pending`/`ambiguous` or operato
 
 `--until-settled` only converges state. It does not auto-replay write intents.
 
-## 4. Idempotency Ledger Files
+## 4. Proof-Carrying Resume Flow
+
+Use this when a route already has enough artifacts and you want to resume or prove a skill path instead of re-running the whole chain.
+
+1. Inspect the current proof layer:
+   - `node dist/bin/trademesh.js replay <run-id>`
+2. Read the `Mesh Proof` section:
+   - check `resumePoints`
+   - check top rerun commands
+3. Rerun from a safe skill boundary:
+   - `node dist/bin/trademesh.js skills run <skill> "<goal>" --plane demo --input .trademesh/runs/<run-id>/artifacts.json --skip-satisfied`
+4. Re-export if needed:
+   - `node dist/bin/trademesh.js export <run-id>`
+
+## 5. Idempotency Ledger Files
 
 - `.trademesh/ledgers/idempotency.v3.snapshot.json`
 - `.trademesh/ledgers/idempotency.v3.journal.jsonl`
 - `.trademesh/ledgers/idempotency.v3.lock`
 
-## 5. Lock Handling and Recovery
+## 6. Lock Handling and Recovery
 
 The runtime acquires lock with `O_EXCL`, retries 5 times, and treats locks older than 120s as stale.
 
@@ -60,7 +74,7 @@ If apply is blocked by ledger lock:
    - `rm .trademesh/ledgers/idempotency.v3.lock`
 4. Retry apply/reconcile.
 
-## 6. Ledger Corruption Recovery
+## 7. Ledger Corruption Recovery
 
 If ledger files are corrupted or unreadable:
 
@@ -73,7 +87,7 @@ If ledger files are corrupted or unreadable:
    - `rm -f .trademesh/ledgers/idempotency.v3.lock`
 4. Re-run `reconcile` first, then `apply`.
 
-## 7. Doctor Reason Catalog Use
+## 8. Doctor Reason Catalog Use
 
 When `doctor --probe active` fails, use reason catalog fields:
 
@@ -87,7 +101,7 @@ Recommended loop:
 3. Run each `nextActionCmd`
 4. Re-run doctor until strict pass
 
-## 8. Hard Cutover Notes
+## 9. Hard Cutover Notes
 
 - Runtime only accepts `RunRecord.version = 3`.
 - Runtime only accepts artifact envelopes `version = 3`.

@@ -27,6 +27,7 @@ const ARTIFACT_TO_SHARED_STATE: Partial<Record<ArtifactKey, string[]>> = {
   "report.operator-summary": ["operatorSummary"],
   "report.operator-brief": ["operatorBrief"],
   "mesh.skill-certification": ["skillCertification"],
+  "mesh.route-proof": ["meshRouteProof"],
   "diagnostics.probes": ["diagnosticsProbes"],
   "diagnostics.readiness": ["diagnosticsReadiness"],
   "diagnostics.reason-catalog": ["diagnosticsReasonCatalog"],

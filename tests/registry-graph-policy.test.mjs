@@ -25,8 +25,14 @@ test("registry parses extended skill contract frontmatter", async () => {
   assert.equal(thesis.contractVersion, 1);
   assert.equal(thesis.safetyClass, "read");
   assert.equal(thesis.determinism, "high");
+  assert.equal(thesis.proofClass, "portable");
+  assert.equal(typeof thesis.proofGoal, "string");
+  assert.equal(typeof thesis.proofFixture, "string");
+  assert.deepEqual(thesis.proofTargetOutputs, ["trade.thesis"]);
   assert.deepEqual(liveGuard.preferredHandoffs, ["official-executor"]);
+  assert.equal(liveGuard.proofClass, "portable");
   assert.deepEqual(idempotencyGate.preferredHandoffs, ["operator-summarizer"]);
+  assert.equal(idempotencyGate.proofClass, "portable");
 });
 
 test("graph runtime honors artifact dependencies and preferred handoffs", async () => {

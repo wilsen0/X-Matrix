@@ -1,0 +1,52 @@
+{
+  "approval.ticket": {
+    "key": "approval.ticket",
+    "version": 3,
+    "producer": "proof-fixture",
+    "createdAt": "2026-03-22T00:00:00.000Z",
+    "ruleRefs": [],
+    "doctrineRefs": [],
+    "data": {
+      "ticketId": "apt_proof_ticket",
+      "runId": "run_proof",
+      "proposal": "protective-put",
+      "plane": "demo",
+      "approvedBy": "portable-proof",
+      "reason": "portable_proof",
+      "approvedAt": "2026-03-22T00:00:00.000Z",
+      "policyOutcome": "approved",
+      "evidence": []
+    }
+  },
+  "execution.idempotency-check": {
+    "key": "execution.idempotency-check",
+    "version": 3,
+    "producer": "proof-fixture",
+    "createdAt": "2026-03-22T00:00:00.000Z",
+    "ruleRefs": [],
+    "doctrineRefs": [],
+    "data": {
+      "runId": "run_proof",
+      "checkedAt": "2026-03-22T00:00:00.000Z",
+      "status": "ok",
+      "items": [],
+      "hitCount": 0,
+      "blockedCount": 0,
+      "nextAction": "node dist/bin/trademesh.js export run_proof"
+    }
+  },
+  "execution.reconciliation": {
+    "key": "execution.reconciliation",
+    "version": 3,
+    "producer": "proof-fixture",
+    "createdAt": "2026-03-22T00:00:00.000Z",
+    "ruleRefs": [],
+    "doctrineRefs": [],
+    "data": {
+      "runId": "run_proof",
+      "status": "matched",
+      "items": [],
+      "attempts": []
+    }
+  }
+}

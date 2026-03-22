@@ -17,6 +17,10 @@ artifact_version: 3
 contract_version: 1
 safety_class: read
 determinism: high
+proof_class: portable
+proof_goal: "portable proof rehearsal planner"
+proof_fixture: ./proof/input.artifacts.json
+proof_target_outputs: [operations.rehearsal-plan]
 standalone_command: "trademesh skills run rehearsal-planner \"<goal>\" --plane demo"
 standalone_route: [env-probe, market-probe, account-probe, diagnosis-synthesizer, rehearsal-planner]
 standalone_inputs: [goal]

@@ -17,6 +17,10 @@ artifact_version: 3
 contract_version: 1
 safety_class: read
 determinism: high
+proof_class: portable
+proof_goal: "portable proof approval gate"
+proof_fixture: ./proof/input.artifacts.json
+proof_target_outputs: [approval.ticket]
 standalone_command: "trademesh skills run approval-gate \"<goal>\""
 standalone_route: [portfolio-xray, market-scan, trade-thesis, hedge-planner, scenario-sim, policy-gate, approval-gate]
 standalone_inputs: [goal]

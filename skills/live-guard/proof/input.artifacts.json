@@ -1,0 +1,192 @@
+{
+  "goal.intake": {
+    "key": "goal.intake",
+    "version": 3,
+    "producer": "proof-fixture",
+    "createdAt": "2026-03-22T00:00:00.000Z",
+    "ruleRefs": [],
+    "doctrineRefs": [],
+    "data": {
+      "rawGoal": "portable proof hedge btc drawdown",
+      "normalizedGoal": "portable proof hedge btc drawdown",
+      "symbols": ["BTC"],
+      "targetDrawdownPct": 4,
+      "hedgeIntent": "protect_downside",
+      "timeHorizon": "swing",
+      "planePreference": "demo",
+      "executePreference": "dry_run",
+      "sources": {
+        "symbols": "default",
+        "targetDrawdownPct": "default",
+        "hedgeIntent": "default",
+        "timeHorizon": "default"
+      },
+      "warnings": []
+    }
+  },
+  "portfolio.snapshot": {
+    "key": "portfolio.snapshot",
+    "version": 3,
+    "producer": "proof-fixture",
+    "createdAt": "2026-03-22T00:00:00.000Z",
+    "ruleRefs": [],
+    "doctrineRefs": [],
+    "data": {
+      "source": "okx-cli",
+      "symbols": ["BTC"],
+      "drawdownTarget": "4%",
+      "balance": {
+        "code": "0",
+        "data": [
+          {
+            "details": [
+              {
+                "ccy": "USDT",
+                "availBal": "20000",
+                "usdEq": "20000"
+              }
+            ]
+          }
+        ]
+      },
+      "positions": {
+        "code": "0",
+        "data": [
+          {
+            "instId": "BTC-USDT-SWAP",
+            "pos": "0.01",
+            "markPx": "70000",
+            "lever": "3",
+            "posSide": "long"
+          }
+        ]
+      },
+      "commands": [],
+      "errors": [],
+      "accountEquity": 100000,
+      "availableUsd": 20000
+    }
+  },
+  "portfolio.risk-profile": {
+    "key": "portfolio.risk-profile",
+    "version": 3,
+    "producer": "proof-fixture",
+    "createdAt": "2026-03-22T00:00:00.000Z",
+    "ruleRefs": [],
+    "doctrineRefs": [],
+    "data": {
+      "directionalExposure": {
+        "longUsd": 15000,
+        "shortUsd": 0,
+        "netUsd": 15000,
+        "dominantSide": "long"
+      },
+      "concentration": {
+        "grossUsd": 20000,
+        "topSymbol": "BTC",
+        "topSharePct": 35,
+        "top3": [
+          {
+            "symbol": "BTC",
+            "usd": 7000,
+            "sharePct": 35
+          }
+        ]
+      },
+      "leverageHotspots": [],
+      "feeDrag": {
+        "recentFeePaidUsd": 0,
+        "recentFeeRows": 0
+      },
+      "correlationBuckets": [
+        {
+          "bucketId": "crypto-beta",
+          "symbols": ["BTC"],
+          "grossUsd": 7000,
+          "sharePct": 35
+        }
+      ]
+    }
+  },
+  "market.snapshot": {
+    "key": "market.snapshot",
+    "version": 3,
+    "producer": "proof-fixture",
+    "createdAt": "2026-03-22T00:00:00.000Z",
+    "ruleRefs": [],
+    "doctrineRefs": [],
+    "data": {
+      "tickers": {
+        "BTC-USDT": {
+          "data": [
+            {
+              "last": "70000",
+              "markPx": "69980"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "market.regime": {
+    "key": "market.regime",
+    "version": 3,
+    "producer": "proof-fixture",
+    "createdAt": "2026-03-22T00:00:00.000Z",
+    "ruleRefs": ["trend-following"],
+    "doctrineRefs": ["turtle-trend"],
+    "data": {
+      "symbols": ["BTC"],
+      "directionalRegime": "uptrend",
+      "volState": "normal",
+      "tailRiskState": "normal",
+      "fundingState": "neutral",
+      "conviction": 60,
+      "trendScores": [],
+      "marketVolatility": 0.03,
+      "ruleRefs": ["trend-following"],
+      "doctrineRefs": ["turtle-trend"]
+    }
+  },
+  "diagnostics.readiness": {
+    "key": "diagnostics.readiness",
+    "version": 3,
+    "producer": "proof-fixture",
+    "createdAt": "2026-03-22T00:00:00.000Z",
+    "ruleRefs": [],
+    "doctrineRefs": [],
+    "data": {
+      "probeMode": "active",
+      "plane": "demo",
+      "strictTarget": "apply",
+      "strictPass": true,
+      "modules": [
+        {
+          "module": "runtime",
+          "status": "ready",
+          "reason": "fixture",
+          "evidence": ["proof fixture"],
+          "nextAction": "No action required."
+        }
+      ],
+      "probeReceipts": []
+    }
+  },
+  "execution.apply-decision": {
+    "key": "execution.apply-decision",
+    "version": 3,
+    "producer": "proof-fixture",
+    "createdAt": "2026-03-22T00:00:00.000Z",
+    "ruleRefs": [],
+    "doctrineRefs": [],
+    "data": {
+      "outcome": "approved",
+      "proposal": "protective-put",
+      "reasons": ["proof fixture approval decision"],
+      "approvalProvided": true,
+      "breachFlags": [],
+      "ruleRefs": [],
+      "doctrineRefs": []
+    }
+  }
+}

@@ -28,6 +28,10 @@ export interface SkillRuntimeSurface {
   contractVersion: number;
   safetyClass: SkillManifest["safetyClass"];
   determinism: SkillManifest["determinism"];
+  proofClass: SkillManifest["proofClass"];
+  proofGoal?: string;
+  proofFixture?: string;
+  proofTargetOutputs: SkillManifest["proofTargetOutputs"];
 }
 
 export interface SkillGraphEdge {
@@ -79,6 +83,10 @@ function toSurface(manifest: SkillManifest): SkillRuntimeSurface {
     contractVersion: manifest.contractVersion,
     safetyClass: manifest.safetyClass,
     determinism: manifest.determinism,
+    proofClass: manifest.proofClass,
+    proofGoal: manifest.proofGoal,
+    proofFixture: manifest.proofFixture,
+    proofTargetOutputs: [...manifest.proofTargetOutputs],
   };
 }
 

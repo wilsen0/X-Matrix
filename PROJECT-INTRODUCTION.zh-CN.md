@@ -61,7 +61,9 @@ TradeMesh 更接近以下产品，而不是聊天助手：
 - 用 `--symbol`、`--max-drawdown`、`--intent`、`--horizon` 显式约束目标
 - 查看每个 proposal 的可行动性、环境缺口和 policy 结果
 - 通过 `skills certify` 量化证明模块化 skill 的合同完整性与独立可执行性
+- 通过 `skills certify --strict` 把 modularity proof 变成可执行门禁
 - 通过 `skills run <name>` 独立调用任意 skill 的 mini-workflow
+- 通过 `skills run --skip-satisfied` 基于现有 artifacts 从中间恢复 skill 路由
 - 通过 `rehearse demo` 做标准化演练并生成 rehearsal receipt
 - 在 dry-run 模式下生成结构化命令预览
 - 用 `reconcile --until-settled` 自动循环收敛不确定执行状态
@@ -74,8 +76,8 @@ TradeMesh 更接近以下产品，而不是聊天助手：
 node dist/bin/trademesh.js doctor --probe active --plane demo
 node dist/bin/trademesh.js doctor --probe active --plane demo --strict --strict-target apply
 node dist/bin/trademesh.js skills graph
-node dist/bin/trademesh.js skills certify
-node dist/bin/trademesh.js skills run hedge-planner "hedge my BTC drawdown with demo first" --plane demo
+node dist/bin/trademesh.js skills certify --strict
+node dist/bin/trademesh.js skills run hedge-planner "hedge my BTC drawdown with demo first" --plane demo --input skills/hedge-planner/proof/input.artifacts.json --skip-satisfied
 node dist/bin/trademesh.js plan "hedge my BTC drawdown with demo first" \
   --plane demo \
   --symbol BTC \
@@ -222,6 +224,7 @@ TradeMesh 采用 artifact handoff。当前关键 artifact 包括：
 - `approval.ticket`
 - `execution.reconciliation`
 - `report.operator-summary`
+- `mesh.route-proof`
 
 这么做的好处是：
 
@@ -230,6 +233,7 @@ TradeMesh 采用 artifact handoff。当前关键 artifact 包括：
 - 回放更可信
 - 更容易增加新 skill
 - 更容易定位问题
+- 更容易证明某个 skill 是否真的可以被独立恢复和重跑
 
 ## 8. 当前版本最重要的能力升级
 
@@ -303,6 +307,13 @@ M2.6 在保持 KISS 的前提下补齐了可运营细节：
 - replay 与 export 共用 `operator-brief` 六字段首屏，避免“口径不一致”
 - `skills certify` 输出 `mesh.skill-certification`，把“模块化可独立工作”变成可量化证据
 
+M2.7 则把这个方向进一步收口成 proof-carrying mesh：
+
+- `skills certify` 对 portable skills 执行 fixture-route proof，而不只是静态检查
+- `skills run --skip-satisfied` 可以利用已有 artifacts 从中间恢复
+- 每个关键 run 都会写出 `mesh.route-proof`
+- replay 与 export 会直接展示 route minimality、resume point 与 rerun command
+
 ### 8.5 Standalone Skill Contract
 
 每个 skill 现在都有显式的 standalone 合同（route/input/output/capabilities）。
@@ -312,6 +323,7 @@ M2.6 在保持 KISS 的前提下补齐了可运营细节：
 - 每个 skill 都可以独立调用
 - 独立调用仍然走 artifact handoff，不走隐式耦合
 - 独立调用结果同样可 replay / export
+- 独立调用还可以通过 `--skip-satisfied` 直接利用已有 artifacts 作为恢复点
 
 ### 8.6 Active Probe + Rehearsal
 
@@ -328,7 +340,27 @@ M2.6 在保持 KISS 的前提下补齐了可运营细节：
 - standalone route 合法性（终点 skill 与依赖路由一致）
 - standalone 输出可用性（声明输出可由 route 产出）
 
+在 M2.7，这个能力进一步变成“可执行认证”：
+
+- `portable` skill 会读取 proof fixture，真的跑一遍 mini-route
+- `structural` skill 明确只做结构合同证明，不假装脱离环境也能本地证明
+- 认证结果会给出 `proofPassed`、`proofMode`、`rerunCommand`
+
 这让 TradeMesh 的创新点不再停留在“理念描述”，而是可以产出机器可验证报告。
+
+### 8.9 Proof-Carrying Mesh（M2.7）
+
+TradeMesh 现在不只是“可 replay 的 runtime”，而是 proof-carrying runtime。
+
+每次关键 run 都会自动生成 `mesh.route-proof`，回答这些问题：
+
+- 这条 route 为什么成立
+- 哪些 step 真正执行了
+- 哪些 step 因为输入已满足而被 `skipped_satisfied`
+- 这条链是否已经足够精简
+- 可以从哪些 skill 作为恢复点继续执行
+
+这也是本轮最核心的创新点：把“模块化 skills 可独立工作、可拼装、可恢复”做成系统自己能证明的能力。
 
 ## 9. 它现在是不是已经可以用
 

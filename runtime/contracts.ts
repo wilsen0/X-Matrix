@@ -26,6 +26,7 @@ const ARTIFACT_KEYS: ArtifactKey[] = [
   "report.operator-summary",
   "report.operator-brief",
   "mesh.skill-certification",
+  "mesh.route-proof",
   "diagnostics.probes",
   "diagnostics.readiness",
   "diagnostics.reason-catalog",
@@ -320,6 +321,33 @@ export function validateArtifactData(key: ArtifactKey, data: unknown): void {
     }
     if ("items" in record) {
       invariant(Array.isArray(record.items), `Artifact '${key}.items' must be an array.`);
+    }
+    return;
+  }
+
+  if (key === "mesh.route-proof") {
+    const record = asObject(data);
+    invariant(record, `Artifact '${key}' must be an object.`);
+    if ("routeKind" in record) {
+      invariant(
+        ["workflow", "standalone", "operations"].includes(String(record.routeKind)),
+        `Artifact '${key}.routeKind' is invalid.`,
+      );
+    }
+    if ("route" in record) {
+      invariant(Array.isArray(record.route), `Artifact '${key}.route' must be an array.`);
+    }
+    if ("targetOutputs" in record) {
+      invariant(Array.isArray(record.targetOutputs), `Artifact '${key}.targetOutputs' must be an array.`);
+    }
+    if ("proofPassed" in record) {
+      invariant(typeof record.proofPassed === "boolean", `Artifact '${key}.proofPassed' must be a boolean.`);
+    }
+    if ("steps" in record) {
+      invariant(Array.isArray(record.steps), `Artifact '${key}.steps' must be an array.`);
+    }
+    if ("resumePoints" in record) {
+      invariant(Array.isArray(record.resumePoints), `Artifact '${key}.resumePoints' must be an array.`);
     }
     return;
   }

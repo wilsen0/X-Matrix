@@ -18,6 +18,7 @@ const CURRENT_ARTIFACT_VERSIONS: Record<ArtifactKey, number> = {
   "report.operator-summary": 3,
   "report.operator-brief": 3,
   "mesh.skill-certification": 3,
+  "mesh.route-proof": 3,
   "diagnostics.probes": 3,
   "diagnostics.readiness": 3,
   "diagnostics.reason-catalog": 3,

@@ -58,7 +58,8 @@ test("skills run replay can target another run id", async () => {
 
     assert.equal(replayRecord.routeKind, "standalone");
     assert.equal(replayRecord.entrySkill, "replay");
-    assert.equal(replayRecord.trace.at(-1)?.skill, "replay");
+    assert.ok(replayRecord.trace.some((entry) => entry.skill === "replay"));
+    assert.equal(replayRecord.trace.at(-1)?.skill, "mesh-prover");
   });
 
   await cleanupRunArtifacts(sourceRunId);

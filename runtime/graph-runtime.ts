@@ -1,4 +1,5 @@
 import type {
+  ArtifactKey,
   ArtifactStore,
   SkillContext,
   SkillManifest,
@@ -83,6 +84,7 @@ export interface PlanningGraphOptions {
 export interface PlanningGraphResult {
   trace: SkillOutput[];
   route: string[];
+  skippedSteps: ExplicitRouteSkippedStep[];
 }
 
 export interface ExplicitRouteOptions {
@@ -90,6 +92,13 @@ export interface ExplicitRouteOptions {
   manifests: SkillManifest[];
   executeSkill: (manifest: SkillManifest, context: Omit<SkillContext, "manifest">) => Promise<SkillOutput>;
   context: Omit<SkillContext, "manifest">;
+  skipSatisfied?: boolean;
+}
+
+export interface ExplicitRouteSkippedStep {
+  skill: string;
+  produces: ArtifactKey[];
+  reason: "outputs_already_satisfied";
 }
 
 export async function runPlanningGraph(options: PlanningGraphOptions): Promise<PlanningGraphResult> {
@@ -140,13 +149,14 @@ export async function runPlanningGraph(options: PlanningGraphOptions): Promise<P
     throw new Error(`Planning graph could not satisfy skill dependencies: ${missing}`);
   }
 
-  return { trace, route };
+  return { trace, route, skippedSteps: [] };
 }
 
 export async function runExplicitRoute(options: ExplicitRouteOptions): Promise<PlanningGraphResult> {
   const byName = new Map(options.manifests.map((manifest) => [manifest.name, manifest]));
   const trace: SkillOutput[] = [];
   const route: string[] = [];
+  const skippedSteps: ExplicitRouteSkippedStep[] = [];
   const executedCounts = new Map<string, number>();
 
   for (const skillName of options.route) {
@@ -167,6 +177,19 @@ export async function runExplicitRoute(options: ExplicitRouteOptions): Promise<P
       );
     }
 
+    const canSkipSatisfied =
+      options.skipSatisfied === true &&
+      manifest.produces.length > 0 &&
+      manifest.produces.every((key) => options.context.artifacts.has(key));
+    if (canSkipSatisfied) {
+      skippedSteps.push({
+        skill: manifest.name,
+        produces: [...manifest.produces],
+        reason: "outputs_already_satisfied",
+      });
+      continue;
+    }
+
     const output = await options.executeSkill(manifest, {
       ...options.context,
       trace,
@@ -176,5 +199,5 @@ export async function runExplicitRoute(options: ExplicitRouteOptions): Promise<P
     executedCounts.set(manifest.name, executed + 1);
   }
 
-  return { trace, route };
+  return { trace, route, skippedSteps };
 }

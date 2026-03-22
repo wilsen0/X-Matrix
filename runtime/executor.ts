@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 import { executeIntent, inspectOkxEnvironment } from "./okx.js";
 import { createArtifactStore, putArtifact } from "./artifacts.js";
 import { currentArtifactVersion } from "./artifact-schema.js";
-import { runExplicitRoute, runPlanningGraph } from "./graph-runtime.js";
+import { runExplicitRoute, runPlanningGraph, type ExplicitRouteSkippedStep } from "./graph-runtime.js";
 import { formatDrawdownPct } from "./goal-intake.js";
 import {
   claimWriteIntentForExecution,
@@ -28,6 +28,7 @@ import {
   saveRun,
 } from "./trace.js";
 import type {
+  ArtifactKey,
   ArtifactSnapshot,
   ArtifactStore,
   ApprovalTicket,
@@ -46,6 +47,7 @@ import type {
   OrderPlanStep,
   PolicyDecision,
   ReconciliationReport,
+  RouteProof,
   RunErrorRecord,
   RunRecord,
   RunStatus,
@@ -68,6 +70,8 @@ interface StandaloneOptions {
   plane: ExecutionPlane;
   goalOverrides?: GoalIntakeOverrides;
   inputArtifacts?: ArtifactSnapshot;
+  skipSatisfied?: boolean;
+  runtimeInputExtras?: Record<string, unknown>;
 }
 
 interface ApplyOptions {
@@ -115,6 +119,25 @@ interface ExecutionBundle {
   orderPlan: OrderPlanStep[];
   intents: OkxCommandIntent[];
   commandPreview?: CommandPreviewEntry[];
+}
+
+interface StandaloneExecutionResult {
+  manifest: SkillManifest;
+  runId: string;
+  capabilitySnapshot: CapabilitySnapshot;
+  artifacts: ArtifactStore;
+  sharedState: Record<string, unknown>;
+  graph: {
+    route: string[];
+    trace: SkillOutput[];
+    skippedSteps: ExplicitRouteSkippedStep[];
+  };
+  record: RunRecord;
+}
+
+interface SkillStaticCertificationState {
+  report: SkillCertificationReport;
+  itemsBySkill: Map<string, SkillCertificationItem>;
 }
 
 export interface DemoSession {
@@ -415,7 +438,16 @@ function preferredProposalName(proposals: SkillProposal[]): string | undefined {
   return proposals.find((proposal) => proposal.recommended)?.name ?? proposals[0]?.name;
 }
 
-function buildSkillCertificationReport(manifests: SkillManifest[]): SkillCertificationReport {
+function rerunCommandTemplate(
+  runId: string,
+  goal: string,
+  plane: ExecutionPlane,
+  skillName: string,
+): string {
+  return `node dist/bin/trademesh.js skills run ${skillName} "${goal.replace(/"/g, '\\"')}" --plane ${plane} --input .trademesh/runs/${runId}/artifacts.json --skip-satisfied`;
+}
+
+function buildStaticSkillCertificationState(manifests: SkillManifest[]): SkillStaticCertificationState {
   const names = new Set(manifests.map((manifest) => manifest.name));
   const producesByName = new Map(manifests.map((manifest) => [manifest.name, new Set(manifest.produces)]));
   const items: SkillCertificationItem[] = manifests
@@ -473,11 +505,20 @@ function buildSkillCertificationReport(manifests: SkillManifest[]): SkillCertifi
       const standaloneRouteValid = routeFailures.length === 0;
       const standaloneOutputsUsable = outputsFailures.length === 0;
       const failures = [...contractFailures, ...routeFailures, ...outputsFailures];
+      const proofFailure = failures[0];
       return {
         skill: manifest.name,
         contractComplete,
         standaloneRouteValid,
         standaloneOutputsUsable,
+        proofClass: manifest.proofClass,
+        proofPassed: manifest.proofClass === "structural" ? failures.length === 0 : false,
+        proofMode: "static",
+        rerunnable: manifest.proofClass === "portable" && failures.length === 0,
+        proofFailure,
+        rerunCommand: manifest.proofClass === "portable" && failures.length === 0
+          ? manifest.standaloneCommand
+          : undefined,
         passed: failures.length === 0,
         failures,
       } satisfies SkillCertificationItem;
@@ -485,13 +526,49 @@ function buildSkillCertificationReport(manifests: SkillManifest[]): SkillCertifi
     .sort((left, right) => left.skill.localeCompare(right.skill));
 
   const passedSkills = items.filter((item) => item.passed).length;
-  return {
+  const portableSkills = items.filter((item) => item.proofClass === "portable").length;
+  const structuralSkills = items.length - portableSkills;
+  const portableProofPassed = items.filter((item) => item.proofClass === "portable" && item.proofPassed).length;
+  const rerunnableSkills = items.filter((item) => item.rerunnable).length;
+  const report = {
     generatedAt: now(),
     totalSkills: items.length,
     passedSkills,
     failedSkills: items.length - passedSkills,
+    portableSkills,
+    structuralSkills,
+    portableProofPassed,
+    rerunnableSkills,
     items,
   };
+  return {
+    report,
+    itemsBySkill: new Map(items.map((item) => [item.skill, item])),
+  };
+}
+
+function buildSkillCertificationReport(manifests: SkillManifest[]): SkillCertificationReport {
+  return buildStaticSkillCertificationState(manifests).report;
+}
+
+function ensureSkillCertificationArtifact(
+  manifests: SkillManifest[],
+  artifacts: ArtifactStore,
+  producer: string,
+): SkillCertificationReport {
+  const existing = artifacts.get<SkillCertificationReport>("mesh.skill-certification")?.data;
+  if (existing) {
+    return existing;
+  }
+
+  const report = buildSkillCertificationReport(manifests);
+  putArtifact(artifacts, {
+    key: "mesh.skill-certification",
+    version: currentArtifactVersion("mesh.skill-certification"),
+    producer,
+    data: report,
+  });
+  return report;
 }
 
 function skillCertificationSummary(report: SkillCertificationReport): string {
@@ -499,16 +576,19 @@ function skillCertificationSummary(report: SkillCertificationReport): string {
     "TradeMesh Skills Certification",
     `Generated at: ${report.generatedAt}`,
     `Pass: ${report.passedSkills}/${report.totalSkills}`,
+    `Portable proofs: ${report.portableProofPassed}/${report.portableSkills}`,
+    `Rerunnable skills: ${report.rerunnableSkills}`,
     "",
     table(
-      ["Skill", "Contract", "Route", "Outputs", "Status", "Top Failure"],
+      ["Skill", "Proof", "Contract", "Route", "Outputs", "Status", "Top Failure"],
       report.items.map((item) => [
         item.skill,
+        item.proofClass === "portable" ? (item.proofPassed ? "proof-ok" : item.proofMode) : "structural",
         item.contractComplete ? "ok" : "fail",
         item.standaloneRouteValid ? "ok" : "fail",
         item.standaloneOutputsUsable ? "ok" : "fail",
         item.passed ? "passed" : "failed",
-        item.failures[0] ?? "none",
+        item.proofFailure ?? item.failures[0] ?? "none",
       ]),
     ),
   ].join("\n");
@@ -1147,18 +1227,13 @@ export async function createPlan(goal: string, options: PlanOptions): Promise<Ru
       sharedState,
     },
   });
-  putArtifact(artifacts, {
-    key: "mesh.skill-certification",
-    version: currentArtifactVersion("mesh.skill-certification"),
-    producer: "plan-runtime",
-    data: buildSkillCertificationReport(manifests),
-  });
+  ensureSkillCertificationArtifact(manifests, artifacts, "plan-runtime");
   const policyDecision = artifacts.get<PolicyDecision>("policy.plan-decision")?.data;
   const proposals = proposalsFromArtifacts(artifacts);
   const selectedProposal = preferredProposalName(proposals);
   const route = planningRouteWithTail(graph.route, manifests);
 
-  const record = hydrateRecord({
+  const plannedRecord = hydrateRecord({
     kind: "trademesh-run",
     version: 3,
     id: runId,
@@ -1187,7 +1262,24 @@ export async function createPlan(goal: string, options: PlanOptions): Promise<Ru
     createdAt: now(),
     updatedAt: now(),
   });
-  putOperatorSummaryArtifact(artifacts, record, "plan-runtime");
+  putOperatorSummaryArtifact(artifacts, plannedRecord, "plan-runtime");
+  const proofTrace = await attachRouteProof({
+    manifests,
+    runId,
+    goal,
+    plane: options.plane,
+    routeKind: "workflow",
+    route: graph.route,
+    trace: plannedRecord.trace,
+    artifacts,
+    sharedState,
+    targetOutputs: ["planning.proposals", "policy.plan-decision"],
+  });
+  const record = hydrateRecord({
+    ...plannedRecord,
+    trace: proofTrace.trace,
+    updatedAt: now(),
+  });
 
   await saveRun(record);
   await saveArtifactSnapshot(runId, artifacts.snapshot());
@@ -1207,11 +1299,52 @@ function assertStandaloneOutputs(manifest: SkillManifest, artifacts: ArtifactSto
   }
 }
 
-export async function runSkillStandalone(
+async function attachRouteProof(params: {
+  manifests: SkillManifest[];
+  runId: string;
+  goal: string;
+  plane: ExecutionPlane;
+  routeKind: RunRecord["routeKind"];
+  route: string[];
+  trace: SkillOutput[];
+  artifacts: ArtifactStore;
+  sharedState: Record<string, unknown>;
+  targetOutputs: ArtifactKey[];
+  skippedSteps?: ExplicitRouteSkippedStep[];
+}): Promise<{ trace: SkillOutput[]; proof?: RouteProof }> {
+  const manifest = params.manifests.find((entry) => entry.name === "mesh-prover");
+  if (!manifest) {
+    return { trace: params.trace };
+  }
+
+  ensureSkillCertificationArtifact(params.manifests, params.artifacts, "mesh-prover-runtime");
+  const baseTrace = params.trace.filter((entry) => entry.skill !== "mesh-prover");
+  const output = await executeSkill(manifest, {
+    runId: params.runId,
+    goal: params.goal,
+    plane: params.plane,
+    manifests: params.manifests,
+    trace: baseTrace,
+    artifacts: params.artifacts,
+    runtimeInput: {
+      routeKind: params.routeKind,
+      route: params.route,
+      targetOutputs: params.targetOutputs,
+      skippedSteps: params.skippedSteps ?? [],
+    },
+    sharedState: params.sharedState,
+  });
+  return {
+    trace: [...baseTrace, output],
+    proof: params.artifacts.get<RouteProof>("mesh.route-proof")?.data,
+  };
+}
+
+async function executeStandaloneRouteInternal(
   skillName: string,
   goal: string,
   options: StandaloneOptions,
-): Promise<RunRecord> {
+): Promise<StandaloneExecutionResult> {
   const manifests = await loadSkillRegistry();
   const manifest = manifests.find((entry) => entry.name === skillName);
   if (!manifest) {
@@ -1222,14 +1355,7 @@ export async function runSkillStandalone(
   const capabilitySnapshot = await inspectOkxEnvironment();
   const sharedState: Record<string, unknown> = {};
   const artifacts = createArtifactStore(options.inputArtifacts, sharedState);
-  if (!artifacts.has("mesh.skill-certification")) {
-    putArtifact(artifacts, {
-      key: "mesh.skill-certification",
-      version: currentArtifactVersion("mesh.skill-certification"),
-      producer: "standalone-runtime",
-      data: buildSkillCertificationReport(manifests),
-    });
-  }
+  ensureSkillCertificationArtifact(manifests, artifacts, "standalone-runtime");
   const graph = await runExplicitRoute({
     route: manifest.standaloneRoute,
     manifests,
@@ -1245,16 +1371,18 @@ export async function runSkillStandalone(
         capabilitySnapshot,
         goalOverrides: options.goalOverrides ?? {},
         replaySourceRunId: skillName === "replay" ? goal : undefined,
+        ...(options.runtimeInputExtras ?? {}),
       },
       sharedState,
     },
+    skipSatisfied: options.skipSatisfied === true,
   });
   assertStandaloneOutputs(manifest, artifacts);
 
   const policyDecision = artifacts.get<PolicyDecision>("policy.plan-decision")?.data;
   const proposals = proposalsFromArtifacts(artifacts);
   const selectedProposal = preferredProposalName(proposals);
-  const route = [...graph.route];
+  const route = [...manifest.standaloneRoute];
   const record = hydrateRecord({
     kind: "trademesh-run",
     version: 3,
@@ -1276,13 +1404,50 @@ export async function runSkillStandalone(
       `Standalone route executed for skill '${skillName}'.`,
       `Standalone route: ${route.join(" -> ")}`,
       `Selected plane: ${options.plane}`,
+      ...(options.skipSatisfied ? ["Resume mode: upstream steps were skipped when outputs were already satisfied."] : []),
     ],
     createdAt: now(),
     updatedAt: now(),
   });
 
+  return {
+    manifest,
+    runId,
+    capabilitySnapshot,
+    artifacts,
+    sharedState,
+    graph,
+    record,
+  };
+}
+
+export async function runSkillStandalone(
+  skillName: string,
+  goal: string,
+  options: StandaloneOptions,
+): Promise<RunRecord> {
+  const executed = await executeStandaloneRouteInternal(skillName, goal, options);
+  const proofTrace = await attachRouteProof({
+    manifests: await loadSkillRegistry(),
+    runId: executed.runId,
+    goal,
+    plane: options.plane,
+    routeKind: "standalone",
+    route: executed.record.route,
+    trace: executed.record.trace,
+    artifacts: executed.artifacts,
+    sharedState: executed.sharedState,
+    targetOutputs: [...executed.manifest.standaloneOutputs],
+    skippedSteps: executed.graph.skippedSteps,
+  });
+  const record = hydrateRecord({
+    ...executed.record,
+    trace: proofTrace.trace,
+    updatedAt: now(),
+  });
+
   await saveRun(record);
-  await saveArtifactSnapshot(runId, artifacts.snapshot());
+  await saveArtifactSnapshot(executed.runId, executed.artifacts.snapshot());
   return record;
 }
 
@@ -1590,15 +1755,38 @@ export async function applyRun(runId: string, options: ApplyOptions): Promise<Ru
   });
   applyTrace.push(operatorOutput);
   const operatorSummary = artifacts.get<OperatorSummaryV3>("report.operator-summary")?.data;
+  const applyRoute = [
+    ...(baseRecord.trace.some((entry) => entry.skill === "policy-gate") ? ["policy-gate"] : []),
+    ...(approvalOutput ? ["approval-gate"] : []),
+    "live-guard",
+    "official-executor",
+    "idempotency-gate",
+    "operator-summarizer",
+  ];
+  const proofTrace = await attachRouteProof({
+    manifests,
+    runId: baseRecord.id,
+    goal: baseRecord.goal,
+    plane: targetPlane,
+    routeKind: "operations",
+    route: applyRoute,
+    trace: applyTrace,
+    artifacts,
+    sharedState,
+    targetOutputs: ["execution.intent-bundle", "execution.apply-decision", "report.operator-summary"],
+  });
 
   const nextRecord = hydrateRecord({
     ...baseRecord,
     plane: targetPlane,
     status,
+    routeKind: "operations",
+    route: applyRoute,
     selectedProposal: proposal.name,
     policyDecision: effectiveDecision,
-    trace: applyTrace,
+    trace: proofTrace.trace,
     capabilitySnapshot,
+    routeSummary: buildRouteSummary(baseRecord.goal, manifests, applyRoute),
     executions: [...baseRecord.executions, execution],
     errors: [...baseRecord.errors, ...executionOutcome.errors],
     operatorState: operatorSummary
@@ -1761,12 +1949,27 @@ export async function reconcileRun(runId: string, options: ReconcileOptions = {}
     },
     sharedState,
   });
+  const proofTrace = await attachRouteProof({
+    manifests,
+    runId: record.id,
+    goal: record.goal,
+    plane: latestExecution.plane,
+    routeKind: "operations",
+    route: ["reconcile-engine", "operator-summarizer"],
+    trace: [...traceWithoutReplay, ...reconcileOutputs, operatorOutput],
+    artifacts,
+    sharedState,
+    targetOutputs: ["execution.reconciliation", "report.operator-summary"],
+  });
   const operatorSummary = artifacts.get<OperatorSummaryV3>("report.operator-summary")?.data;
   const attemptsRan = report.attempts?.length ?? reconcileOutputs.length;
   const nextRecord = hydrateRecord({
     ...record,
     status: nextStatus,
-    trace: [...traceWithoutReplay, ...reconcileOutputs, operatorOutput],
+    routeKind: "operations",
+    route: ["reconcile-engine", "operator-summarizer"],
+    trace: proofTrace.trace,
+    routeSummary: buildRouteSummary(record.goal, manifests, ["reconcile-engine", "operator-summarizer"]),
     executions: reconciledExecutions,
     operatorState: operatorSummary
       ? operatorSummary.requiresHumanAction
@@ -1831,10 +2034,25 @@ export async function replayRun(runId: string, options: ReplayOptions = {}): Pro
     });
   }
   const nextTrace = operatorOutput ? [...replayTrace, operatorOutput] : replayTrace;
+  const proofTrace = await attachRouteProof({
+    manifests,
+    runId: record.id,
+    goal: record.goal,
+    plane: record.plane,
+    routeKind: "operations",
+    route: operatorOutput ? ["replay", "operator-summarizer"] : ["replay"],
+    trace: nextTrace,
+    artifacts,
+    sharedState,
+    targetOutputs: ["report.operator-summary"],
+  });
   const operatorSummary = artifacts.get<OperatorSummaryV3>("report.operator-summary")?.data;
   const nextRecord = hydrateRecord({
     ...record,
-    trace: nextTrace,
+    routeKind: "operations",
+    route: operatorOutput ? ["replay", "operator-summarizer"] : ["replay"],
+    trace: proofTrace.trace,
+    routeSummary: buildRouteSummary(record.goal, manifests, operatorOutput ? ["replay", "operator-summarizer"] : ["replay"]),
     operatorState: operatorSummary
       ? operatorSummary.requiresHumanAction
         ? operatorSummary.blockers.length > 0 ? "blocked" : "attention"
@@ -1854,18 +2072,14 @@ export async function rehearseDemo(options: RehearseOptions = {}): Promise<RunRe
   const manifests = await loadSkillRegistry();
   const runId = await createRunId();
   const capabilitySnapshot = await inspectOkxEnvironment();
+  const operatorManifest = manifests.find((manifest) => manifest.name === "operator-summarizer");
   if (!capabilitySnapshot.demoProfileLikelyConfigured) {
     throw new Error("Demo profile is required for rehearsal. Run `trademesh doctor --probe active` first.");
   }
 
   const sharedState: Record<string, unknown> = {};
   const artifacts = createArtifactStore(undefined, sharedState);
-  putArtifact(artifacts, {
-    key: "mesh.skill-certification",
-    version: currentArtifactVersion("mesh.skill-certification"),
-    producer: "rehearse-runtime",
-    data: buildSkillCertificationReport(manifests),
-  });
+  ensureSkillCertificationArtifact(manifests, artifacts, "rehearse-runtime");
   const route = [
     "env-probe",
     "market-probe",
@@ -1974,6 +2188,37 @@ export async function rehearseDemo(options: RehearseOptions = {}): Promise<RunRe
     ruleRefs: decision.ruleRefs ?? [],
     doctrineRefs: decision.doctrineRefs ?? [],
   });
+  let fullTrace = [...graph.trace];
+  if (operatorManifest) {
+    const operatorOutput = await executeSkill(operatorManifest, {
+      runId,
+      goal: "rehearse demo write path",
+      plane: "demo",
+      manifests,
+      trace: fullTrace,
+      artifacts,
+      runtimeInput: {
+        runStatus: status,
+        latestExecution: execution,
+        nextSafeAction: `node dist/bin/trademesh.js export ${runId}`,
+      },
+      sharedState,
+    });
+    fullTrace = [...fullTrace, operatorOutput];
+  }
+  const proofTrace = await attachRouteProof({
+    manifests,
+    runId,
+    goal: "rehearse demo write path",
+    plane: "demo",
+    routeKind: "operations",
+    route: operatorManifest ? [...graph.route, "operator-summarizer"] : [...graph.route],
+    trace: fullTrace,
+    artifacts,
+    sharedState,
+    targetOutputs: ["operations.rehearsal-plan", "operations.rehearsal-receipt", "report.operator-summary"],
+  });
+  const rehearsalRoute = operatorManifest ? [...graph.route, "operator-summarizer"] : [...graph.route];
 
   const record = hydrateRecord({
     kind: "trademesh-run",
@@ -1983,12 +2228,12 @@ export async function rehearseDemo(options: RehearseOptions = {}): Promise<RunRe
     plane: "demo",
     status,
     routeKind: "operations",
-    route: graph.route,
-    trace: graph.trace,
+    route: rehearsalRoute,
+    trace: proofTrace.trace,
     selectedProposal: proposal.name,
     policyDecision: decision,
     capabilitySnapshot,
-    routeSummary: buildRouteSummary("rehearse demo write path", manifests, graph.route),
+    routeSummary: buildRouteSummary("rehearse demo write path", manifests, rehearsalRoute),
     executions: [execution],
     errors: executionOutcome.errors,
     notes: [
@@ -2181,6 +2426,24 @@ function latestSkillCertification(artifacts: ArtifactStore): SkillCertificationR
   return artifacts.get<SkillCertificationReport>("mesh.skill-certification")?.data ?? null;
 }
 
+function latestRouteProof(artifacts: ArtifactStore): RouteProof | null {
+  return artifacts.get<RouteProof>("mesh.route-proof")?.data ?? null;
+}
+
+function routeProofLines(proof: RouteProof | null): string[] {
+  if (!proof) {
+    return ["No mesh route proof recorded."];
+  }
+
+  const reruns = proof.resumePoints.slice(0, 3).map((point) => `${point.skill}: ${point.rerunCommand}`);
+  return [
+    `proofPassed: ${proof.proofPassed ? "yes" : "no"}`,
+    `minimality: ${proof.minimality.passed ? "passed" : "failed"} (${proof.minimality.reason})`,
+    `resumePoints: ${proof.resumePoints.length}`,
+    ...(reruns.length > 0 ? reruns : ["rerunCommands: none"]),
+  ];
+}
+
 function idempotentHitCount(execution: ExecutionRecord | undefined): number {
   if (!execution) {
     return 0;
@@ -2314,6 +2577,7 @@ function nextSafeAction(record: RunRecord): string[] {
 }
 
 function formatPlanSummary(record: RunRecord): string {
+  const proof = latestTraceEntry(record.trace, "mesh-prover")?.metadata?.routeProof as RouteProof | undefined;
   return [
     ...header("Plan Review", record),
     block("Route Selected", [
@@ -2330,6 +2594,7 @@ function formatPlanSummary(record: RunRecord): string {
     block("Proposal Ranking", proposalLines(record)),
     block("Actionability Summary", actionabilityLines(record)),
     block("Policy Preview", policyLines(record)),
+    block("Mesh Proof", routeProofLines(proof ?? null)),
     block("Next Safe Action", nextSafeAction(record)),
   ].join("\n");
 }
@@ -2338,6 +2603,7 @@ function formatApplySummary(record: RunRecord): string {
   const latestExecution = record.executions.at(-1);
   const commands = latestExecution?.results.map(formatExecutionResult).slice(0, 8) ?? [];
   const idempotentHits = idempotentHitCount(latestExecution);
+  const proof = latestTraceEntry(record.trace, "mesh-prover")?.metadata?.routeProof as RouteProof | undefined;
 
   return [
     ...header("Apply Receipt", record),
@@ -2357,6 +2623,7 @@ function formatApplySummary(record: RunRecord): string {
       `Reconciliation state: ${latestExecution?.reconciliationState ?? "none"}`,
       `Errors logged: ${record.errors.length}`,
     ]),
+    block("Mesh Proof", routeProofLines(proof ?? null)),
     block("Replay Pointer", [
       `Replay: node dist/bin/trademesh.js replay ${record.id}`,
       `Reconcile: node dist/bin/trademesh.js reconcile ${record.id}`,
@@ -2430,9 +2697,160 @@ export async function printSkillList(): Promise<{ manifests: SkillManifest[]; su
   };
 }
 
+function proofRuntimeInputExtras(manifest: SkillManifest): Record<string, unknown> | undefined {
+  if (manifest.name === "approval-gate") {
+    return {
+      executeRequested: true,
+      approvalProvided: true,
+      approvedBy: "portable-proof",
+      approvalReason: "portable_proof",
+    };
+  }
+  if (manifest.name === "idempotency-gate") {
+    return {
+      executeRequested: true,
+      approvalProvided: true,
+      approvedBy: "portable-proof",
+      approvalReason: "portable_proof",
+      applyPlane: "demo",
+    };
+  }
+  if (manifest.name === "operator-summarizer") {
+    return {
+      runStatus: "planned",
+      nextSafeAction: "node dist/bin/trademesh.js export <run-id>",
+    };
+  }
+  if (manifest.name === "live-guard") {
+    return {
+      executeRequested: false,
+    };
+  }
+  return undefined;
+}
+
+function proofRerunCommand(manifest: SkillManifest): string {
+  const parts = [
+    `node dist/bin/trademesh.js skills run ${manifest.name}`,
+    `"${(manifest.proofGoal ?? "<goal>").replace(/"/g, '\\"')}"`,
+    "--plane demo",
+    `--input ${manifest.proofFixture ?? "<proof-fixture>"}`,
+    "--skip-satisfied",
+  ];
+  return parts.join(" ");
+}
+
 export async function certifySkills(manifestsInput?: SkillManifest[]): Promise<SkillsCertificationResult> {
   const manifests = manifestsInput ?? await loadSkillRegistry();
-  const report = buildSkillCertificationReport(manifests);
+  const staticState = buildStaticSkillCertificationState(manifests);
+  const items = await Promise.all(
+    staticState.report.items.map(async (item) => {
+      const manifest = manifests.find((entry) => entry.name === item.skill);
+      if (!manifest) {
+        return {
+          ...item,
+          passed: false,
+          proofPassed: false,
+          proofFailure: item.proofFailure ?? "manifest not found",
+          failures: [...item.failures, "manifest not found"],
+        } satisfies SkillCertificationItem;
+      }
+
+      if (manifest.proofClass !== "portable") {
+        return {
+          ...item,
+          proofPassed: item.passed,
+          proofMode: "static",
+          rerunnable: item.passed,
+          rerunCommand: item.passed ? manifest.standaloneCommand : undefined,
+        } satisfies SkillCertificationItem;
+      }
+
+      if (!item.passed) {
+        return {
+          ...item,
+          proofPassed: false,
+          proofMode: "fixture-route",
+          rerunnable: false,
+          rerunCommand: proofRerunCommand(manifest),
+          proofFailure: item.proofFailure ?? item.failures[0],
+        } satisfies SkillCertificationItem;
+      }
+
+      if (!manifest.proofFixture) {
+        return {
+          ...item,
+          proofPassed: false,
+          proofMode: "fixture-route",
+          rerunnable: false,
+          rerunCommand: proofRerunCommand(manifest),
+          proofFailure: "proof fixture missing",
+          failures: [...item.failures, "proof fixture missing"],
+          passed: false,
+        } satisfies SkillCertificationItem;
+      }
+
+      try {
+        const rawFixture = await fs.readFile(manifest.proofFixture, "utf8");
+        const fixtureSnapshot = JSON.parse(rawFixture) as ArtifactSnapshot;
+        const proofRun = await executeStandaloneRouteInternal(manifest.name, manifest.proofGoal ?? manifest.name, {
+          plane: "demo",
+          inputArtifacts: fixtureSnapshot,
+          skipSatisfied: true,
+          runtimeInputExtras: proofRuntimeInputExtras(manifest),
+        });
+        const missingOutputs = manifest.proofTargetOutputs.filter((key) => !proofRun.artifacts.has(key));
+        if (missingOutputs.length > 0) {
+          return {
+            ...item,
+            proofPassed: false,
+            proofMode: "fixture-route",
+            rerunnable: false,
+            rerunCommand: proofRerunCommand(manifest),
+            proofFailure: `missing proof outputs: ${missingOutputs.join(", ")}`,
+            failures: [...item.failures, `missing proof outputs: ${missingOutputs.join(", ")}`],
+            passed: false,
+          } satisfies SkillCertificationItem;
+        }
+        return {
+          ...item,
+          proofPassed: true,
+          proofMode: "fixture-route",
+          rerunnable: true,
+          rerunCommand: proofRerunCommand(manifest),
+          proofFailure: undefined,
+        } satisfies SkillCertificationItem;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return {
+          ...item,
+          proofPassed: false,
+          proofMode: "fixture-route",
+          rerunnable: false,
+          rerunCommand: proofRerunCommand(manifest),
+          proofFailure: message,
+          failures: [...item.failures, message],
+          passed: false,
+        } satisfies SkillCertificationItem;
+      }
+    }),
+  );
+  const passedSkills = items.filter((item) => item.passed).length;
+  const portableSkills = items.filter((item) => item.proofClass === "portable").length;
+  const structuralSkills = items.length - portableSkills;
+  const portableProofPassed = items.filter((item) => item.proofClass === "portable" && item.proofPassed).length;
+  const rerunnableSkills = items.filter((item) => item.rerunnable).length;
+  const report: SkillCertificationReport = {
+    generatedAt: now(),
+    totalSkills: items.length,
+    passedSkills,
+    failedSkills: items.length - passedSkills,
+    portableSkills,
+    structuralSkills,
+    portableProofPassed,
+    rerunnableSkills,
+    items: [...items].sort((left, right) => left.skill.localeCompare(right.skill)),
+  };
   const createdAt = now();
   return {
     report,
@@ -2468,6 +2886,7 @@ export async function inspectSkill(skillName: string): Promise<{ skill: SkillRun
       `Contract version: ${skill.contractVersion}`,
       `Safety class: ${skill.safetyClass}`,
       `Determinism: ${skill.determinism}`,
+      `Proof class: ${skill.proofClass}`,
       `Description: ${skill.description}`,
     ]),
     block("Contracts", [
@@ -2480,6 +2899,9 @@ export async function inspectSkill(skillName: string): Promise<{ skill: SkillRun
       `Standalone inputs: ${skill.standaloneInputs.length > 0 ? skill.standaloneInputs.join(", ") : "none"}`,
       `Standalone outputs: ${skill.standaloneOutputs.length > 0 ? skill.standaloneOutputs.join(", ") : "none"}`,
       `Required capabilities: ${skill.requiredCapabilities.length > 0 ? skill.requiredCapabilities.join(", ") : "none"}`,
+      `Proof goal: ${skill.proofGoal ?? "n/a"}`,
+      `Proof fixture: ${skill.proofFixture ?? "n/a"}`,
+      `Proof target outputs: ${skill.proofTargetOutputs.length > 0 ? skill.proofTargetOutputs.join(", ") : "none"}`,
     ]),
     block("Routing Signals", [
       `Requires: ${skill.requires.length > 0 ? skill.requires.join(", ") : "none"}`,
@@ -2560,6 +2982,7 @@ function exportBundlePayload(record: RunRecord, artifacts: ArtifactStore): Recor
   const operatorSummary = operatorSummaryOrFallback(record, artifacts);
   const operatorBrief = operatorBriefOrFallback(record, artifacts);
   const skillCertification = latestSkillCertification(artifacts);
+  const meshRouteProof = latestRouteProof(artifacts);
 
   return {
     runId: record.id,
@@ -2589,6 +3012,7 @@ function exportBundlePayload(record: RunRecord, artifacts: ArtifactStore): Recor
     operatorSummary,
     operatorBrief,
     skillCertification,
+    meshRouteProof,
     errors: record.errors,
     notes: record.notes,
     nextActions: nextSafeAction(record),
@@ -2600,6 +3024,7 @@ function exportReport(record: RunRecord, artifacts: ArtifactStore): string {
   const latestExecution = record.executions.at(-1);
   const selectedProposal = record.selectedProposal ?? preferredProposalName(record.proposals);
   const operatorBrief = operatorBriefOrFallback(record, artifacts);
+  const meshRouteProof = latestRouteProof(artifacts);
   return [
     `# TradeMesh Export Report`,
     "",
@@ -2635,6 +3060,7 @@ function exportReport(record: RunRecord, artifacts: ArtifactStore): string {
       ...actionabilityLines(record),
     ]),
     markdownSection("Policy Verdict", policyLines(record)),
+    markdownSection("Mesh Proof", routeProofLines(meshRouteProof)),
     markdownSection(
       "Command Preview / Execution Receipt",
       latestExecution ? latestExecution.results.map(formatExecutionResult) : ["No execution receipt recorded."],
@@ -2711,9 +3137,11 @@ export function formatRunSummary(record: RunRecord): string {
 export function formatReplay(record: RunRecord): string {
   const replayEntry = [...record.trace].reverse().find((entry) => entry.skill === "replay");
   const operatorEntry = [...record.trace].reverse().find((entry) => entry.skill === "operator-summarizer");
+  const meshProofEntry = [...record.trace].reverse().find((entry) => entry.skill === "mesh-prover");
   const operatorSummary = (operatorEntry?.metadata as { operatorSummary?: OperatorSummaryV3 } | undefined)?.operatorSummary;
   const operatorBrief = (operatorEntry?.metadata as { operatorBrief?: OperatorBrief } | undefined)?.operatorBrief ??
     (operatorSummary ? buildOperatorBrief(operatorSummary) : undefined);
+  const meshProof = (meshProofEntry?.metadata as { routeProof?: RouteProof } | undefined)?.routeProof;
   const timelineRaw = Array.isArray(replayEntry?.metadata?.timeline) ? replayEntry.metadata?.timeline as string[] : [];
   const artifactRaw = Array.isArray(replayEntry?.metadata?.artifacts) ? replayEntry.metadata?.artifacts as string[] : [];
   const evidenceRaw = Array.isArray(replayEntry?.metadata?.evidence) ? replayEntry.metadata?.evidence as string[] : [];
@@ -2739,6 +3167,7 @@ export function formatReplay(record: RunRecord): string {
       `Policy verdict: ${record.policyDecision?.outcome ?? "none"}`,
       `Execution verdict: ${latestExecution?.status ?? "none"}`,
     ]),
+    block("Mesh Proof", routeProofLines(meshProof ?? null)),
     block("Timeline", timelineRaw.length > 0 ? timelineRaw : ["No replay timeline captured."]),
     block("Artifact Handoffs", artifactRaw.length > 0 ? artifactRaw : ["No artifact handoffs captured."]),
     block("Policy Decision", policyLines(record)),
