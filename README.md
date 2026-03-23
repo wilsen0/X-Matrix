@@ -244,10 +244,10 @@ Three layers define the system:
 
 The knowledge layer under `docs/books`, `docs/rules`, `rules/`, and `doctrines/` supports the flagship hedge pack. It is not the main product headline.
 
-## Important Note
+## Safety Guidelines
 
-This is a guarded trading runtime prototype, not a production trading engine yet.
+TradeMesh enforces a supervised execution model by design.
 
-- use `apply` without `--execute` first
-- review policy and command preview before any write path
-- prefer the `demo` plane before touching `live`
+- use `apply` without `--execute` to preview before committing
+- review policy verdict and command preview before any write path
+- use the `demo` plane to validate workflows before `live` execution
