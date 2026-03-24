@@ -2,7 +2,9 @@
 
 [English](./README.md) | [中文详细版](./README.zh-CN.md)
 
-> TradeMesh 是一组基于 OpenClaw 智能助手构建的模块化交易 skill pack，融合 OKX Agent Trade Kit 作为执行内核，让用户通过自然对话完成从目标设定到方案执行的完整交易工作流。
+> 本文是 TradeMesh 的中文详细版文档，涵盖产品定位、架构设计、安全模型与用户价值。精简版请看 [English README](./README.md)。
+
+TradeMesh 是一组基于 OpenClaw 智能助手构建的模块化交易 skill pack，融合 OKX Agent Trade Kit 作为执行内核，让用户通过自然对话完成从目标设定到方案执行的完整交易工作流。
 
 ## 1. 这是什么
 

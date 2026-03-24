@@ -13,7 +13,7 @@ Most trading projects die at the same step: people can read the analysis, but no
 
 Install trading skills like you install any other skill. That is the product claim.
 
-For a detailed Chinese walkthrough, see [README.zh-CN.md](./README.zh-CN.md).
+For the detailed Chinese version, see [中文详细版](./README.zh-CN.md).
 For supervised operations procedures, see [docs/RUNBOOK-M2.5.md](./docs/RUNBOOK-M2.5.md).
 
 ## Architecture
