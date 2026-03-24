@@ -169,11 +169,13 @@ TradeMesh 的结构可以分成三层。
 
 - 动态发现已安装的 skills（扫描 `skills/*/SKILL.md`）
 - 读取 YAML frontmatter，解析输入输出合同
-- 根据 artifact 依赖自动编排执行顺序
+- 将 artifact 依赖图编译为带并行标注的执行计划（DAG Compiler：拓扑排序、并行分支检测、关键路径分析、dead-skill 消除）
+- 在执行前静态验证安全不变量（Safety Verifier：写路径护栏、审批路径、无环、capability 可满足性、单写者、完备性）
+- 为每个 artifact 构建 Merkle DAG 密码学完整性链——篡改任何上游 artifact 会使所有下游哈希失效
 - 持久化 trace / policy / execution / artifact 快照
 - 通过 OpenClaw 接收用户自然语言指令并路由到对应 skill 链
 
-这层不关心单个策略细节，关心的是"系统如何有序运行"。安装一个新 skill 目录，就等于给系统装一个新的能力模块——无需改主程序，无需重新配置。
+这层不关心单个策略细节，关心的是"系统如何安全、有序、可验证地运行"。安装一个新 skill 目录，就等于给系统装一个新的能力模块——无需改主程序，无需重新配置。
 
 ### 第三层：Skill Packs（能力模块）
 
@@ -277,7 +279,7 @@ TradeMesh 采用 artifact handoff。当前关键 artifact 包括：
 
 ## 9. 当前版本最重要的能力升级
 
-### 8.1 Structured Goal Intake
+### 9.1 Structured Goal Intake
 
 系统会在最开始生成 `goal.intake`，把您的目标标准化。
 
@@ -288,7 +290,7 @@ TradeMesh 采用 artifact handoff。当前关键 artifact 包括：
 - `--intent`
 - `--horizon`
 
-### 8.2 Capability-aware Proposal
+### 9.2 Capability-aware Proposal
 
 每个 proposal 现在都会附带：
 
@@ -298,7 +300,7 @@ TradeMesh 采用 artifact handoff。当前关键 artifact 包括：
 
 这让 `plan` 阶段就能回答"现在到底能不能做"。
 
-### 8.3 Safer Execution / Retry
+### 9.3 Safer Execution / Retry
 
 每个 intent 都会带上：
 
@@ -312,18 +314,7 @@ TradeMesh 采用 artifact handoff。当前关键 artifact 包括：
 - 只有安全读 intent 才会在可重试错误下重放
 - `retry` 不会重放已经成功的写操作
 
-### 8.4 Exportable Evidence Pack
-
-每次 run 都可以输出：
-
-- `report.md`
-- `bundle.json`
-- `operator-summary.json`
-- `report.operator-brief`（用于 replay/export 首屏的 6 字段摘要）
-
-前者适合阅读和审阅，后者适合归档和系统集成。
-
-### 8.7 Approval + Idempotency + Reconcile
+### 9.4 Approval + Idempotency + Reconcile
 
 M2 阶段新增了三条关键运行时护栏：
 
@@ -347,14 +338,7 @@ M2.6 在保持 KISS 的前提下强化了可运营细节：
 - replay 与 export 共用 `operator-brief` 六字段首屏，避免"口径不一致"
 - `skills certify` 输出 `mesh.skill-certification`，把"模块化可独立工作"变成可量化证据
 
-M2.7 则把这个方向进一步收口成 proof-carrying mesh：
-
-- `skills certify` 对 portable skills 执行 fixture-route proof，而不只是静态检查
-- `skills run --skip-satisfied` 可以利用已有 artifacts 从中间恢复
-- 每个关键 run 都会写出 `mesh.route-proof`
-- replay 与 export 会直接展示 route minimality、resume point 与 rerun command
-
-### 8.5 Standalone Skill Contract
+### 9.5 Standalone Skill Contract
 
 每个 skill 现在都有显式的 standalone 合同（route/input/output/capabilities）。
 
@@ -365,14 +349,14 @@ M2.7 则把这个方向进一步收口成 proof-carrying mesh：
 - 独立调用结果同样可 replay / export
 - 独立调用还可以通过 `--skip-satisfied` 直接利用已有 artifacts 作为恢复点
 
-### 8.6 Active Probe + Rehearsal
+### 9.6 Active Probe + Rehearsal
 
 系统现在新增了两条运行时能力：
 
 - `doctor --probe passive|active|write`：输出模块级健康状态和 probe receipts
 - `rehearse demo`：走固定演练路线并生成 `operations.rehearsal-plan` / `operations.rehearsal-receipt`
 
-### 8.8 Skill 合同认证（M2.6）
+### 9.7 Skill 合同认证
 
 系统新增 `skills certify` 命令，对每个 skill 做三类检查：
 
@@ -380,16 +364,37 @@ M2.7 则把这个方向进一步收口成 proof-carrying mesh：
 - standalone route 合法性（终点 skill 与依赖路由一致）
 - standalone 输出可用性（声明输出可由 route 产出）
 
-在 M2.7，这个能力进一步变成"可执行认证"：
+进一步，这个能力变成了"可执行认证"：
 
 - `portable` skill 会读取 proof fixture，真的跑一遍 mini-route
 - `structural` skill 明确只做结构合同证明，不假装脱离环境也能本地证明
 
-### 8.10 Portable Verified Bundles（M2.8）
+### 9.8 Proof-Carrying Mesh
 
-M2.8 把 proof-carrying runtime 再推进了一步：proof 不再只绑定本地 run 目录，而是可以随导出的 bundle 一起携带。
+TradeMesh 现在不只是"可 replay 的 runtime"，而是 proof-carrying runtime。
 
-这版新增了三件直接影响日常使用的能力：
+每次关键 run 都会自动生成 `mesh.route-proof`，回答这些问题：
+
+- 这条 route 为什么成立
+- 哪些 step 真正执行了
+- 哪些 step 因为输入已满足而被 `skipped_satisfied`
+- 这条链是否已经足够精简
+- 可以从哪些 skill 作为恢复点继续执行
+
+这是最核心的创新点：把"模块化 skills 可独立工作、可拼装、可恢复"做成系统自己能证明的能力。
+
+M2.7 把这个方向进一步收口：
+
+- `skills certify` 对 portable skills 执行 fixture-route proof，而不只是静态检查
+- `skills run --skip-satisfied` 可以利用已有 artifacts 从中间恢复
+- 每个关键 run 都会写出 `mesh.route-proof`
+- replay 与 export 会直接展示 route minimality、resume point 与 rerun command
+
+### 9.9 Portable Verified Bundles
+
+proof 不再只绑定本地 run 目录，而是可以随导出的 bundle 一起携带。
+
+核心能力：
 
 - `bundle.json` 现在是 portable verified bundle，内含：
   - `artifactSnapshot`
@@ -414,19 +419,52 @@ M2.8 把 proof-carrying runtime 再推进了一步：proof 不再只绑定本地
 
 这让 TradeMesh 的创新点不再停留在"理念描述"，而是可以产出机器可验证报告。
 
-### 8.9 Proof-Carrying Mesh（M2.7）
+### 9.10 Exportable Evidence Pack
 
-TradeMesh 现在不只是"可 replay 的 runtime"，而是 proof-carrying runtime。
+每次 run 都可以输出：
 
-每次关键 run 都会自动生成 `mesh.route-proof`，回答这些问题：
+- `report.md`
+- `bundle.json`
+- `operator-summary.json`
+- `report.operator-brief`（用于 replay/export 首屏的 6 字段摘要）
 
-- 这条 route 为什么成立
-- 哪些 step 真正执行了
-- 哪些 step 因为输入已满足而被 `skipped_satisfied`
-- 这条链是否已经足够精简
-- 可以从哪些 skill 作为恢复点继续执行
+前者适合阅读和审阅，后者适合归档和系统集成。
 
-这也是本轮最核心的创新点：把"模块化 skills 可独立工作、可拼装、可恢复"做成系统自己能证明的能力。
+### 9.11 DAG Compiler（依赖图编译器）
+
+系统将 skill 之间的 artifact 依赖关系编译为带并行标注的执行计划：
+
+- Kahn's algorithm 拓扑排序，确保执行顺序严格遵循依赖关系
+- 并行分支检测：无互相依赖的 skills 被分组到同一执行层级，可并发执行
+- 关键路径分析：标注最长依赖链，识别瓶颈
+- Dead-skill 消除：给定目标输出 artifacts，反向可达性分析自动剪除不必要的 skills
+
+输出 `ExecutionPlan`，包含 `levels[]`（并行层级）、`criticalPath`（关键路径）、`maxParallelism`（最大并行度）、`prunedSkills`（被剪除的 skills）。
+
+### 9.12 Merkle DAG 密码学完整性链
+
+每个 artifact 携带密码学完整性证明：
+
+- 每个 artifact 的 content hash = SHA-256(stable-JSON(key + data))
+- chained hash = SHA-256(contentHash + 排序后的上游 artifact chained hashes)
+- 篡改任何上游 artifact，所有下游哈希自动失效
+- 支持单 artifact 验证：给定 `MerkleProofPath`，无需重放整条链即可验证单个 artifact
+- 支持全链验证：重算所有 chained hash，检测任何被篡改或缺失的节点
+
+这把"可审计"从文档描述变成了密码学保证。
+
+### 9.13 静态安全不变量验证
+
+在任何组合工作流执行前，系统对依赖 DAG 静态验证六项安全不变量：
+
+- 写路径护栏：每个 `writes: true` 的 skill 上游必须有 `stage: "guardrail"` 的祖先
+- 审批路径：每个 `writes: true` 的 skill 上游必须有名称包含 "approval" 的祖先
+- 无环：依赖图不能有环（检测到环时报告完整环路径）
+- Capability 可满足性：所有 skill 的 `requiredCapabilities` 在当前环境下可满足
+- 单写者：每个 artifact 最多由一个 skill 产出
+- 完备性：每个被消费的 artifact 必须由某个 skill 产出或作为初始输入提供
+
+输出 `SafetyVerdict`，包含通过/失败状态、每项不变量的详细结果、违规明细。本质上是一个面向 skill 工作流的轻量级 model checker。
 
 ## 10. 当前版本的能力范围
 
@@ -438,6 +476,9 @@ TradeMesh 现在不只是"可 replay 的 runtime"，而是 proof-carrying runtim
 - 对冲方案生成、排序与 capability-aware policy 审核
 - dry-run 预演与 demo 执行即时验证
 - replay 全链路回放与 export 可携带证据包
+- 依赖图编译为带并行标注的执行计划（DAG Compiler）
+- 执行前静态安全不变量验证（6 项检查）
+- Merkle DAG 密码学完整性链（artifact 级篡改检测）
 
 系统设计遵循渐进式信任模型：从 `research` 到 `demo` 再到 `live`，每一层都有独立的安全门禁和审批流程。
 

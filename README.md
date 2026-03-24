@@ -1,253 +1,226 @@
-# TradeMesh CLI Skill Mesh 2.0 for OKX
+# TradeMesh
 
-`okx-skill-mesh` is a CLI-native runtime that turns `okx` CLI into a guarded, auditable skill mesh.
+> Modular trading skills for OKX — install like any skill, auto-orchestrate into workflows, trust through proof-carrying execution.
 
-This repo is not a generic agent framework and not a web app shell. Its product claim is narrower and stronger:
+[![Version](https://img.shields.io/badge/version-3.9.0-blue)]()
+[![Tests](https://img.shields.io/badge/tests-110%20passing-brightgreen)]()
+[![Node](https://img.shields.io/badge/node-%3E%3D22-green)]()
+[![TypeScript](https://img.shields.io/badge/lang-TypeScript%205.9-blue)]()
 
-- `okx` CLI is the only execution kernel
-- each skill is the only extension unit
-- `official-executor` is the only write path
-- `runs/` and `.trademesh/runs/` are the auditable source of truth
+Most trading projects die at the same step: people can read the analysis, but nobody dares deploy and reuse the execution. TradeMesh solves this by turning trading capabilities into independently installable skill modules. Each skill works standalone. Multiple skills auto-compose into complete workflows through artifact dependencies — no config, no glue code. Trust is structural: a single write path, policy gates, and proof-carrying execution make every decision replayable, verifiable, and exportable.
 
-The flagship pack is a hedge workflow:
+Install trading skills like you install any other skill. That is the product claim.
 
-`portfolio-xray -> market-scan -> trade-thesis -> hedge-planner -> scenario-sim -> policy-gate -> official-executor -> replay`
+For a detailed Chinese walkthrough, see [PROJECT-INTRODUCTION.zh-CN.md](./PROJECT-INTRODUCTION.zh-CN.md).
+For supervised operations procedures, see [docs/RUNBOOK-M2.5.md](./docs/RUNBOOK-M2.5.md).
 
-That flagship pack proves the runtime. It is not the whole product identity.
+## Architecture
 
-For a single-document Chinese walkthrough of the product, runtime, safety model, user value, and current boundaries, see [PROJECT-INTRODUCTION.zh-CN.md](./PROJECT-INTRODUCTION.zh-CN.md).
+```
+┌─────────────────────────────────────────────────────────┐
+│                      Skill Packs                        │
+│                                                         │
+│  Sensors            Planners           Guardrails       │
+│  ┌──────────────┐  ┌───────────────┐  ┌──────────────┐ │
+│  │portfolio-xray│  │trade-thesis   │  │policy-gate   │ │
+│  │market-scan   │  │hedge-planner  │  │approval-gate │ │
+│  │              │  │scenario-sim   │  │live-guard    │ │
+│  └──────────────┘  └───────────────┘  └──────────────┘ │
+│                                                         │
+│  Executor (sole write path)     Audit                   │
+│  ┌─────────────────────────┐   ┌──────────────────────┐ │
+│  │  official-executor      │   │  replay / export     │ │
+│  └─────────────────────────┘   └──────────────────────┘ │
+├─────────────────────────────────────────────────────────┤
+│                    Skill Runtime                         │
+│  DAG compiler · safety verifier · Merkle DAG integrity  │
+│  registry · graph · artifacts · policy · trace          │
+│  goal intake · idempotency ledger · reconcile           │
+│  route-proof · portable bundles · skill certification   │
+├─────────────────────────────────────────────────────────┤
+│                OKX Agent Trade Kit                       │
+│  okx CLI · market · trade · portfolio · bot             │
+│  (deterministic execution kernel — sole order path)     │
+└─────────────────────────────────────────────────────────┘
+```
 
-For supervised operations procedures (strict doctor/reconcile loop/live guard/ledger recovery/proof rerun), see [docs/RUNBOOK-M2.5.md](./docs/RUNBOOK-M2.5.md).
+**Three layers, strict boundaries:**
 
-## Why this shape
+- **Skill Packs** — Each skill is a self-contained directory. Install one for a single capability; install several and they auto-compose through artifact dependencies. The system's capability surface is defined by what's currently installed, not by hardcoded config.
+- **Skill Runtime** — The orchestration and trust layer. Compiles skill dependency graphs into parallel execution plans, statically verifies safety invariants before execution, and builds Merkle DAG integrity chains for cryptographic auditability. Also handles discovery, policy enforcement, tracing, and route proofs. No trading logic lives here.
+- **Execution Kernel** — OKX Agent Trade Kit is the only way orders reach the exchange. Local signing, permission-aware, demo/live isolation.
 
-TradeMesh is optimized for operational clarity and operator trust:
+## What Makes It Different
 
-- `doctor --probe passive|active|write` surfaces module-level readiness with probe receipts
-- doctor probe failures are normalized into `reasonCode` + `nextActionCmd`
-- `doctor --strict --strict-target plan|apply|execute` can act as an automation gate
-- `skills inspect` and `skills graph` expose the mesh topology from skill manifests
-- `skills certify --strict` now combines manifest checks with portable fixture proofs
-- `skills run <name> --skip-satisfied` can resume from existing artifacts instead of replaying the whole mini-route
-- `skills run <name> --bundle <bundle.json>` can resume directly from a portable export bundle
-- `plan` produces ranked proposals, actionability labels, and a policy preview
-- `apply` keeps dry-run first and routes every write through `official-executor` with apply-only approval tickets
-- write intents use local v3 idempotency journal+snapshot checks before execute
-- `reconcile` converges ambiguous/pending write outcomes without replaying writes
-- `reconcile --until-settled` loops reconcile attempts until matched or max attempts
-- `rehearse demo` validates policy + executor with a deterministic rehearsal route
-- `apply --execute --verify-receipt` verifies demo receipts immediately after execute
-- `rehearse demo --execute --verify-receipt` does the same on the rehearsal route
-- `replay` reconstructs the route, evidence, policy, and execution receipt
-- `replay --bundle <bundle.json>` works without local run directories
-- every major run writes `mesh.route-proof`, so replay/export can show route minimality and safe rerun points
-- `export` materializes a run report, a portable verified bundle, operator summary, business brief, skill certification evidence, and route proof evidence
+- **Install like any skill** — Each skill is a directory with a `SKILL.md` manifest. Drop it in, the runtime auto-discovers it. Remove it, the system adjusts. No config changes, no code changes, no orchestration scripts.
+- **Standalone or composed** — Every skill works independently. Install just `market-scan` for market analysis, or just `portfolio-xray` for position diagnostics. When multiple skills are present, the runtime resolves artifact dependencies and auto-composes them into workflows.
+- **Trust through write isolation** — `official-executor` is the only module that can place orders. Custom skills read, analyze, plan — they never touch assets directly. That separation is what makes deployment and reuse safe.
+- **Proof-carrying mesh** — Every run generates `mesh.route-proof`: machine-verifiable evidence of what executed, what was skipped, and why the route is minimally sufficient. Reuse risk becomes an inspectable object, not a black box.
+- **Portable verified bundles** — Export a run as a self-contained `bundle.json` with artifact snapshots, manifest proofs, and route evidence. Replay anywhere without local state.
+- **Progressive trust** — `research` → `demo` → `live`, each with independent safety gates, approval flows, and execution caps.
 
 ## Quick Start
 
 ```bash
-npm install
-npm run build
-node dist/bin/trademesh.js doctor --probe active --plane demo
-node dist/bin/trademesh.js doctor --probe active --plane demo --strict --strict-target apply
-node dist/bin/trademesh.js skills ls
-node dist/bin/trademesh.js skills graph
-node dist/bin/trademesh.js skills certify --strict
-node dist/bin/trademesh.js skills run hedge-planner "hedge my BTC drawdown with demo first" --plane demo --input skills/hedge-planner/proof/input.artifacts.json --skip-satisfied
-node dist/bin/trademesh.js skills run hedge-planner "hedge my BTC drawdown with demo first" --plane demo --bundle .trademesh/exports/<run-id>/bundle.json --skip-satisfied
-node dist/bin/trademesh.js plan "hedge my BTC drawdown with demo first" --plane demo --symbol BTC --max-drawdown 4 --intent protect-downside --horizon swing
-node dist/bin/trademesh.js apply <run-id> --plane demo --proposal protective-put --approve --approved-by alice --execute --verify-receipt
-node dist/bin/trademesh.js apply <run-id> --plane live --proposal protective-put --approve --approved-by alice --live-confirm YES_LIVE_EXECUTION --max-order-usd 500 --max-total-usd 1500 --execute
-node dist/bin/trademesh.js reconcile <run-id> --source auto --window-min 120 --until-settled --max-attempts 3 --interval-sec 5
-node dist/bin/trademesh.js rehearse demo --approve --execute --verify-receipt
-node dist/bin/trademesh.js replay <run-id>
-node dist/bin/trademesh.js replay --bundle .trademesh/exports/<run-id>/bundle.json
-node dist/bin/trademesh.js export <run-id>
+npm install && npm run build
+
+# Health check
+trademesh doctor --probe active --plane demo
+
+# Full demo flow: doctor → certify → plan → apply → export → replay
 pnpm demo:flow
+
+# With execution + receipt verification
 pnpm demo:flow -- --execute --approved-by alice
-node dist/bin/trademesh.js demo "hedge my BTC drawdown with demo first" --plane demo
-pnpm test
 ```
 
 ## Core Commands
 
-- `trademesh doctor [--probe passive|active|write] [--plane research|demo|live] [--strict] [--strict-target plan|apply|execute] [--json]`
-- `trademesh demo "<goal>" [--plane research|demo|live] [--execute] [--symbol <CSV>] [--max-drawdown <number>] [--intent protect-downside|reduce-beta|de-risk] [--horizon intraday|swing|position] [--json]`
-- `trademesh skills ls|list`
-- `trademesh skills inspect <name> [--json]`
-- `trademesh skills certify [--strict] [--json]`
-- `trademesh skills run <name> "<goal>" [--plane research|demo|live] [--symbol <CSV>] [--max-drawdown <number>] [--intent protect-downside|reduce-beta|de-risk] [--horizon intraday|swing|position] [--input <artifact.json>] [--bundle <bundle.json>] [--skip-satisfied] [--allow-contract-drift] [--json]`
-- `trademesh skills graph [--json]`
-- `trademesh runs list`
-- `trademesh plan "<goal>" [--plane research|demo|live] [--profile demo|live] [--symbol <CSV>] [--max-drawdown <number>] [--intent protect-downside|reduce-beta|de-risk] [--horizon intraday|swing|position] [--json]`
-- `trademesh apply <run-id> [--plane demo|live] [--profile demo|live] [--proposal <name>] [--approve] [--approved-by <name>] [--approval-reason <text>] [--live-confirm YES_LIVE_EXECUTION] [--max-order-usd <n>] [--max-total-usd <n>] [--execute] [--verify-receipt] [--json]`
-- `trademesh rehearse demo [--execute] [--approve] [--verify-receipt] [--json]`
-- `trademesh replay <run-id> [--skill <name>] [--json]`
-- `trademesh replay --bundle <bundle.json> [--json]`
-- `trademesh retry <run-id> [--json]`
-- `trademesh reconcile <run-id> [--source auto|client-id|fallback] [--window-min <n>] [--until-settled] [--max-attempts <n>] [--interval-sec <n>] [--json]`
-- `trademesh export <run-id> [--format md|json] [--output <path>] [--json]`
+| Command | Purpose |
+|---------|---------|
+| `doctor [--probe passive\|active\|write] [--strict]` | Environment readiness with probe receipts and machine-checkable gates |
+| `skills ls \| graph \| certify --strict` | Mesh topology, contract verification, fixture-backed proof |
+| `plan "<goal>" --plane demo` | Ranked proposals with actionability, capability gaps, and policy preview |
+| `apply <run-id> [--execute --verify-receipt]` | Dry-run or supervised execution with approval ticket |
+| `reconcile <run-id> [--until-settled]` | Converge ambiguous/pending write outcomes with bounded retries |
+| `replay <run-id>` or `replay --bundle <file>` | Full decision chain reconstruction (local or portable) |
+| `export <run-id>` | Evidence pack: report + verified bundle + operator summary |
+| `rehearse demo [--execute --verify-receipt]` | Deterministic operations rehearsal route |
 
-## Structured Goal Intake
+<details>
+<summary>Full command reference</summary>
 
-TradeMesh now keeps a canonical `goal.intake` artifact for the flagship route.
+```
+trademesh doctor [--probe passive|active|write] [--plane research|demo|live] [--strict] [--strict-target plan|apply|execute] [--json]
+trademesh demo "<goal>" [--plane research|demo|live] [--execute] [--symbol <CSV>] [--max-drawdown <number>] [--intent protect-downside|reduce-beta|de-risk] [--horizon intraday|swing|position] [--json]
+trademesh skills ls|list
+trademesh skills inspect <name> [--json]
+trademesh skills certify [--strict] [--json]
+trademesh skills run <name> "<goal>" [--plane research|demo|live] [--input <artifact.json>] [--bundle <bundle.json>] [--skip-satisfied] [--allow-contract-drift] [--json]
+trademesh skills graph [--json]
+trademesh runs list
+trademesh plan "<goal>" [--plane research|demo|live] [--symbol <CSV>] [--max-drawdown <number>] [--intent protect-downside|reduce-beta|de-risk] [--horizon intraday|swing|position] [--json]
+trademesh apply <run-id> [--plane demo|live] [--proposal <name>] [--approve] [--approved-by <name>] [--live-confirm YES_LIVE_EXECUTION] [--max-order-usd <n>] [--max-total-usd <n>] [--execute] [--verify-receipt] [--json]
+trademesh rehearse demo [--execute] [--approve] [--verify-receipt] [--json]
+trademesh replay <run-id> [--skill <name>] [--json]
+trademesh replay --bundle <bundle.json> [--json]
+trademesh retry <run-id> [--json]
+trademesh reconcile <run-id> [--source auto|client-id|fallback] [--window-min <n>] [--until-settled] [--max-attempts <n>] [--interval-sec <n>] [--json]
+trademesh export <run-id> [--format md|json] [--output <path>] [--json]
+```
 
-- `plan` and `demo` can override the parsed goal with `--symbol`, `--max-drawdown`, `--intent`, and `--horizon`
-- portfolio sensing persists the normalized goal interpretation before any market or hedge planning
-- `plan`, `apply`, `replay`, and `export` all reference the same interpreted symbols, drawdown target, intent, and horizon
+</details>
 
-This makes planning more deterministic than the earlier prompt-only heuristics.
+## Flagship Workflow
+
+When the hedge skill pack is installed, the runtime auto-composes this chain from artifact dependencies alone — no orchestration config:
+
+```
+portfolio-xray → market-scan → trade-thesis → hedge-planner → scenario-sim → policy-gate → official-executor → replay
+```
+
+Each arrow is an artifact handoff — not a function call, not a prompt chain. Skills communicate through typed, versioned artifacts that are persisted, replayable, and exportable. Install a different skill pack, get a different workflow. The runtime adapts.
 
 ## Safety Model
 
-- custom skills do not place orders directly
-- `research` blocks all write intents
-- `demo` defaults to preview-first, and `--execute` is explicit
-- `live` execute requires `--approve --approved-by --live-confirm YES_LIVE_EXECUTION`
-- `live` execute also requires `--max-order-usd` and `--max-total-usd` within policy limits
-- `live` execute requires a fresh `doctor --probe active --plane live` check (<=15 min)
-- `apply --execute` requires `--approve --approved-by <name>` and emits `approval.ticket`
-- write intents are deduplicated through:
-  - `.trademesh/ledgers/idempotency.v3.snapshot.json`
-  - `.trademesh/ledgers/idempotency.v3.journal.jsonl`
-  - `.trademesh/ledgers/idempotency.v3.lock`
-- every plan/apply/replay persists an auditable run record
-- write intents are never auto-retried; only safe read intents may be retried
+| Layer | Enforcement |
+|-------|-------------|
+| Write isolation | `official-executor` is the sole write path; custom skills cannot place orders |
+| Plane separation | `research` blocks all writes; `demo` defaults to preview-first; `live` requires explicit confirmation |
+| Approval gate | `apply --execute` requires `--approve --approved-by <name>`, emits `approval.ticket` |
+| Live guard | `live` requires `--live-confirm YES_LIVE_EXECUTION` + order/total USD caps + fresh doctor check (≤15 min) |
+| Idempotency | v3 journal + snapshot + lock prevents duplicate writes under concurrent execution |
+| Reconciliation | `reconcile` converges ambiguous/pending states without replaying writes |
+| Write retry policy | Write intents are never auto-retried; only safe read intents may retry on transient errors |
 
-## Actionability Model
+## Technical Highlights
 
-- every proposal now carries `executionReadiness`, `actionable`, and `capabilityGaps`
-- `policy-gate` re-evaluates every ranked proposal, not only the selected one
-- the recommended proposal must come from the proposals that are currently actionable for dry-run or better
-- `doctor` now separates `plan`, `apply`, and `execute` readiness
+### DAG Compiler
 
-## Standalone Skill Model
+The skill runtime compiles artifact dependency graphs into optimized execution plans:
 
-- every skill manifest now declares `standalone_route`, `standalone_inputs`, and `standalone_outputs`
-- `skills run <name>` executes that explicit mini-workflow route without trigger-based auto-routing
-- `--skip-satisfied` turns standalone execution into a resume/proof mode by skipping already satisfied upstream outputs
-- `--bundle <bundle.json>` seeds standalone execution from a portable export bundle instead of a local run directory
-- bundle-backed rerun checks manifest drift by default and blocks unless `--allow-contract-drift` is explicit
-- standalone runs are persisted as normal auditable runs with `routeKind=standalone`
+- **Topological sort** (Kahn's algorithm) resolves artifact dependencies into a strict execution order
+- **Parallel branch detection** groups independent skills into execution levels — skills at the same level have no mutual dependencies and can run concurrently
+- **Critical path analysis** identifies the longest dependency chain and annotates each skill with whether it's on the critical path
+- **Dead-skill elimination** prunes skills whose outputs are unreachable from the target artifacts, reducing execution surface without manual config
 
-## Proof-Carrying Mesh
+Output: `ExecutionPlan` with `levels[]`, `criticalPath`, `maxParallelism`, `prunedSkills`, and `dependencyEdges`.
 
-- every skill now declares `proof_class`
-  - `portable`: can be proved locally with fixture artifacts
-  - `structural`: keeps a structural contract but does not pretend to be environment-free
-- `skills certify` now runs portable fixture routes and records `proofPassed`, `proofMode`, and `rerunCommand`
-- every major `plan/apply/reconcile/replay/rehearse` run now writes `mesh.route-proof`
-- `export` now writes a portable verified bundle with `artifactSnapshot` and `manifestProof`
-- bundle replay/rerun checks whether the current skill contracts still match the bundle's original proof contract
-- `mesh.route-proof` records:
-  - which route steps executed
-  - which steps were `skipped_satisfied`
-  - whether the route is minimally sufficient for its target outputs
-  - which skills are safe resume points
-- replay/export render `Business Brief`, `Operator Brief`, `Mesh Proof`, and `Contract Proof`
+### Merkle DAG Artifact Integrity
 
-## Active Probe + Rehearsal
+Every artifact in the execution chain carries a cryptographic integrity proof:
 
-- `doctor --probe active` runs read probes for market/account paths and records receipts
-- `doctor --probe write` runs write-path preflight checks without placing orders
-- `doctor` now emits `diagnostics.reason-catalog` style failures with normalized `reasonCode`
-- `doctor --strict --strict-target <phase>` returns a machine-checkable pass/fail gate
-- `rehearse demo` runs a deterministic operations route:
-  - `env-probe -> market-probe -> account-probe -> diagnosis-synthesizer -> rehearsal-planner -> policy-gate -> official-executor`
-- rehearsal writes `operations.rehearsal-plan` and `operations.rehearsal-receipt` artifacts
-- `receipt-verifier` can verify fresh demo execute receipts immediately after execution
+- Each artifact gets a **content hash** (SHA-256 of stable-JSON-serialized key + data)
+- The **chained hash** = SHA-256(contentHash + sorted input artifact chained hashes) — tampering with any upstream artifact invalidates all downstream hashes
+- The full execution trace forms a **Merkle DAG** with roots (no inputs), leaves (no consumers), and a `chainDigest` (combined leaf hashes)
+- **Single-artifact verification**: given a `MerkleProofPath`, verify one artifact's integrity without replaying the entire chain
+- **Full-chain verification**: recompute all chained hashes from artifacts and detect any tampered or missing nodes
 
-## Approval + Reconcile
+This turns "auditable" from a documentation claim into a cryptographic guarantee.
 
-- `apply` is the only approval injection point; there is no standalone `approve` command
-- `approval-gate` creates `approval.ticket` for supervised write execution
-- idempotent write hits are skipped as `skipped(idempotent-hit)`
-- `reconcile <run-id> --source auto|client-id|fallback --window-min <n>` updates `execution.reconciliation` and converges pending/ambiguous write state
-- `reconcile --until-settled --max-attempts <n> --interval-sec <n>` loops and appends per-attempt evidence until matched or max-attempt exit
-- `export` writes `report.md`, `bundle.json`, and `operator-summary.json`
-- `report.business-brief` and `report.operator-brief` now drive the first screen for replay/export
-- `bundle.json` now carries `artifactSnapshot`, `manifestProof`, `mesh.skill-certification`, and `mesh.route-proof` for portable proof and rerun
-- apply route now includes explicit guardrail chain:
-  - `policy-gate -> approval-gate -> live-guard -> official-executor -> idempotency-gate -> [receipt-verifier] -> operator-summarizer`
+### Static Safety Invariant Verifier
 
-## Skill Certification
+Before any composed workflow executes, the runtime statically verifies six safety invariants on the dependency DAG:
 
-- `skills certify` evaluates each installed skill on three dimensions:
-  - contract completeness
-  - standalone route validity
-  - standalone outputs usability
-- portable skills also run a fixture-backed proof route, so certification is executable rather than purely declarative
-- the command emits a certification table and structured JSON output
-- certification summary is embedded in export bundles for operator/auditor handoff
+| Invariant | What it checks |
+|-----------|---------------|
+| Write-path guardrail | Every `writes: true` skill has a `stage: "guardrail"` ancestor |
+| Approval-path | Every `writes: true` skill has an ancestor whose name contains "approval" |
+| Cycle-freedom | No cycles in the dependency graph (reports exact cycle path) |
+| Capability satisfiability | All `requiredCapabilities` are met by the current environment |
+| Single-writer | Each artifact is produced by at most one skill |
+| Completeness | Every consumed artifact is produced by some skill or supplied as initial input |
 
-## Hard Cutover
+Output: `SafetyVerdict` with `passed`, per-invariant results, violation details, and error/warning counts. This is a lightweight model checker for skill workflows.
 
-- run files are now `version: 3` and require `routeKind`
-- legacy run files and legacy raw artifact snapshots are rejected by design
-- recreate old runs with the current runtime before applying/replaying/exporting
+### Runtime Infrastructure
 
-## Demo Script
+- **v3 Idempotency Ledger** — Event-sourced journal + snapshot + lock file. Concurrent `apply` calls get single-writer admission; duplicate writes are detected and skipped before reaching the exchange.
+- **Route-proof minimality** — `mesh.route-proof` records which steps executed, which were `skipped_satisfied`, whether the route is minimally sufficient, and which skills are safe resume points.
+- **Executable certification** — `skills certify --strict` runs fixture-backed proof routes for portable skills, not just static manifest checks. Outputs `proofPassed`, `proofMode`, and `rerunCommand`.
+- **Structured goal intake** — Canonical `goal.intake` artifact normalizes symbols, drawdown targets, intent, and horizon once. Every downstream skill references the same interpretation.
+- **Portable bundle rerun** — `skills run --bundle <file>` seeds execution from an exported bundle. Manifest drift is detected automatically; blocked unless `--allow-contract-drift` is explicit.
+- **Reconcile convergence** — Bounded retry loop (`--until-settled --max-attempts N`) with per-attempt evidence, windowed matching, and multi-source fallback.
 
-Use this sequence for a live demo:
+## Demo
 
 ```bash
+# One-command demo (dry-run path)
 pnpm demo:flow
+
+# With execution + verification
 pnpm demo:flow -- --execute --approved-by alice
 ```
 
-If you want the raw underlying commands instead of the one-command wrapper:
+`pnpm demo:flow` runs: `doctor --strict` → `skills certify --strict` → `plan` → `apply` (dry-run) → `export` → `replay --bundle`
+
+With `--execute`, it switches to: `doctor --probe active --strict` → `apply --execute --verify-receipt` → `export` → `replay --bundle`
+
+<details>
+<summary>Step-by-step commands</summary>
 
 ```bash
-node dist/bin/trademesh.js doctor
-node dist/bin/trademesh.js doctor --probe active --plane demo --strict --strict-target apply
-node dist/bin/trademesh.js skills graph
-node dist/bin/trademesh.js skills certify --strict
-node dist/bin/trademesh.js plan "hedge my BTC drawdown with demo first" --plane demo --symbol BTC --max-drawdown 4 --intent protect-downside --horizon swing
-node dist/bin/trademesh.js apply <run-id> --plane demo --proposal protective-put --approve --approved-by alice --execute --verify-receipt
-node dist/bin/trademesh.js replay <run-id>
-node dist/bin/trademesh.js export <run-id>
-node dist/bin/trademesh.js replay --bundle .trademesh/exports/<run-id>/bundle.json
+trademesh doctor --probe active --plane demo --strict --strict-target apply
+trademesh skills graph
+trademesh skills certify --strict
+trademesh plan "hedge my BTC drawdown with demo first" --plane demo --symbol BTC --max-drawdown 4 --intent protect-downside --horizon swing
+trademesh apply <run-id> --plane demo --proposal protective-put --approve --approved-by alice --execute --verify-receipt
+trademesh replay <run-id>
+trademesh export <run-id>
+trademesh replay --bundle .trademesh/exports/<run-id>/bundle.json
 ```
 
-`pnpm demo:flow` defaults to a dry-run supervised path:
+</details>
 
-- `doctor --probe passive --strict --strict-target apply`
-- `skills certify --strict`
-- `plan`
-- `apply` dry-run
-- `export`
-- `replay --bundle`
+## Documentation
 
-`pnpm demo:flow -- --execute --approved-by <name>` switches to verified demo execute mode:
+| Document | Description |
+|----------|-------------|
+| [Product Introduction (中文)](./PROJECT-INTRODUCTION.zh-CN.md) | Full product walkthrough: positioning, architecture, safety model, user value |
+| [Operations Runbook](./docs/RUNBOOK-M2.5.md) | Supervised operations: doctor loop, live guard, ledger recovery, proof rerun |
+| [Trading Methodology](./docs/METHODOLOGY.md) | Knowledge layer: methodology, rules, book distillations |
+| [Progress & Roadmap](./PROGRESS.md) | Implementation status, data model, validation coverage, next milestones |
 
-- `doctor --probe active --plane demo --strict --strict-target execute`
-- `apply --execute --verify-receipt`
-- `export`
-- `replay --bundle`
+## License
 
-If local OKX demo credentials are configured and you want the raw end-to-end proof point:
-
-```bash
-node dist/bin/trademesh.js demo "hedge my BTC drawdown with demo first" --plane demo --execute
-```
-
-## Architecture
-
-Three layers define the system:
-
-- Execution Kernel
-  - `okx ... --json`
-- Skill Runtime
-  - registry, graph runtime, artifact store, canonical goal intake, policy, trace persistence, export bundle, CLI presentation
-- Skill Packs
-  - `skills/*/SKILL.md` + optional `run.ts`
-
-The knowledge layer under `docs/books`, `docs/rules`, `rules/`, and `doctrines/` supports the flagship hedge pack. It is not the main product headline.
-
-## Safety Guidelines
-
-TradeMesh enforces a supervised execution model by design.
-
-- use `apply` without `--execute` to preview before committing
-- review policy verdict and command preview before any write path
-- use the `demo` plane to validate workflows before `live` execution
+MIT

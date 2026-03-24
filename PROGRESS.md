@@ -1,10 +1,10 @@
 # TradeMesh Progress
 
-> Last updated: 2026-03-22
+> Last updated: 2026-03-24
 
 ## Current State
 
-- Version: `v0.4.1`
+- Version: `v3.9.0`
 - Product framing: `CLI Skill Mesh 2.0 for OKX`
 - Status: production-grade supervised execution M2.8 (`portable verified bundles + demo receipt verification + business-first replay/export`)
 

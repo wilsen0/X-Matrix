@@ -1,6 +1,6 @@
 {
   "name": "okx-skill-mesh",
-  "version": "0.1.0",
+  "version": "3.9.0",
   "description": "CLI Skill Mesh 2.0 runtime for guarded OKX plan/apply/replay workflows.",
   "type": "module",
   "bin": {
