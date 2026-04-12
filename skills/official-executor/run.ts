@@ -1,171 +1,33 @@
-import { createCommandIntent } from "../../runtime/okx.js";
 import { putArtifact } from "../../runtime/artifacts.js";
-import { createHash } from "node:crypto";
+import {
+  buildActionsFromIntents,
+  buildReadIntents,
+  createClientOrderRef,
+  formatPrice,
+  previewEntry,
+  resolveWalletFromArtifacts,
+  toNumber,
+  writeIntentForStep,
+} from "../../runtime/official-skill-adapter.js";
 import type {
   AgentWalletIdentity,
   ArtifactKey,
-  CommandPreviewEntry,
   ExecutionAction,
   OkxCommandIntent,
-  OptionOrderPlanStep,
-  OptionPlaceOrderParams,
   OrderPlanStep,
   PolicyDecision,
   SkillContext,
   SkillOutput,
   SkillProposal,
   SwapOrderPlanStep,
-  SwapPlaceOrderParams,
   TradeThesis,
 } from "../../runtime/types.js";
 
 const FALLBACK_SYMBOL = "BTC";
 
-function buildPlaneFlagArgs(plane: SkillContext["plane"]): string[] {
-  if (plane === "demo") {
-    return ["--profile", "demo", "--json"];
-  }
-
-  if (plane === "live") {
-    return ["--profile", "live", "--json"];
-  }
-
-  return ["--json"];
-}
-
-function toNumber(value: unknown): number | undefined {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === "string") {
-    const parsed = Number(value.replace(/,/g, "").trim());
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-  return undefined;
-}
-
-function formatPrice(px: number): string {
-  if (px >= 10_000) {
-    return px.toFixed(1);
-  }
-  if (px >= 1_000) {
-    return px.toFixed(2);
-  }
-  if (px >= 10) {
-    return px.toFixed(3);
-  }
-  return px.toFixed(4);
-}
-
-function buildSwapPlaceOrderCommand(params: SwapPlaceOrderParams, plane: SkillContext["plane"]): string {
-  const args = [
-    "okx",
-    "swap",
-    "place-order",
-    "--instId",
-    params.instId,
-    "--tdMode",
-    params.tdMode,
-    "--side",
-    params.side,
-    "--ordType",
-    params.ordType,
-    "--sz",
-    params.sz,
-  ];
-
-  if (params.px && params.ordType !== "market") {
-    args.push("--px", params.px);
-  }
-  if (params.reduceOnly !== undefined) {
-    args.push("--reduceOnly", String(params.reduceOnly));
-  }
-  if (params.posSide) {
-    args.push("--posSide", params.posSide);
-  }
-  if (params.tpTriggerPx) {
-    args.push("--tpTriggerPx", params.tpTriggerPx, "--tpOrdPx", params.tpOrdPx ?? "-1");
-  }
-  if (params.slTriggerPx) {
-    args.push("--slTriggerPx", params.slTriggerPx, "--slOrdPx", params.slOrdPx ?? "-1");
-  }
-  if (params.tag) {
-    args.push("--tag", params.tag);
-  }
-  if (params.clOrdId) {
-    args.push("--clOrdId", params.clOrdId);
-  }
-  args.push(...buildPlaneFlagArgs(plane));
-  return args.join(" ");
-}
-
-function buildOptionPlaceOrderCommand(params: OptionPlaceOrderParams, plane: SkillContext["plane"]): string {
-  return [
-    "okx",
-    "option",
-    "place-order",
-    "--instId",
-    params.instId,
-    "--side",
-    params.side,
-    "--sz",
-    params.sz,
-    "--px",
-    params.px,
-    ...buildPlaneFlagArgs(plane),
-  ].join(" ");
-}
-
-function previewEntry(intent: OkxCommandIntent): CommandPreviewEntry {
-  return {
-    intentId: intent.intentId,
-    stepIndex: intent.stepIndex,
-    module: intent.module,
-    requiresWrite: intent.requiresWrite,
-    safeToRetry: intent.safeToRetry,
-    clientOrderRef: intent.clientOrderRef,
-    reason: intent.reason,
-    command: intent.command,
-  };
-}
-
-function buildReadIntents(
-  symbols: string[],
-  plane: SkillContext["plane"],
-  runId: string,
-  proposalName: string,
-): OkxCommandIntent[] {
-  const flags = buildPlaneFlagArgs(plane).join(" ");
-  return [
-    createCommandIntent(`okx account balance ${flags}`, {
-      intentId: `${runId}:${proposalName}:read-balance`,
-      stepIndex: 0,
-      safeToRetry: true,
-      module: "account",
-      requiresWrite: false,
-      reason: "Refresh account balance before materializing execution.",
-    }),
-    createCommandIntent(`okx account positions ${flags}`, {
-      intentId: `${runId}:${proposalName}:read-positions`,
-      stepIndex: 1,
-      safeToRetry: true,
-      module: "account",
-      requiresWrite: false,
-      reason: "Refresh account positions before materializing execution.",
-    }),
-    ...symbols.map((symbol, index) =>
-      createCommandIntent(`okx market ticker ${symbol}-USDT ${flags}`, {
-        intentId: `${runId}:${proposalName}:read-ticker:${symbol.toLowerCase()}`,
-        stepIndex: index + 2,
-        safeToRetry: true,
-        module: "market",
-        requiresWrite: false,
-        reason: `Refresh ${symbol} price before materializing execution.`,
-      })),
-  ];
-}
+// ---------------------------------------------------------------------------
+// Risk-budget application (executor-level concern, not adapter)
+// ---------------------------------------------------------------------------
 
 function applyRiskBudgetToSwap(step: SwapOrderPlanStep, thesis: TradeThesis): SwapOrderPlanStep {
   const cappedNotional = Math.min(step.targetNotionalUsd, thesis.riskBudget.maxSingleOrderUsd);
@@ -193,6 +55,10 @@ function applyRiskBudgetToSwap(step: SwapOrderPlanStep, thesis: TradeThesis): Sw
     },
   };
 }
+
+// ---------------------------------------------------------------------------
+// Proposal selection (executor-level concern)
+// ---------------------------------------------------------------------------
 
 function selectProposal(
   proposals: SkillProposal[],
@@ -225,73 +91,9 @@ function materializeProposal(proposal: SkillProposal, thesis: TradeThesis): Orde
   });
 }
 
-function createClientOrderRef(runId: string, proposalName: string, stepIndex: number): string {
-  const fingerprint = createHash("sha256")
-    .update(`${runId}|${proposalName}|${stepIndex}`)
-    .digest("hex")
-    .slice(0, 22);
-  return `tm${fingerprint}`;
-}
-
-function writeIntentForStep(
-  step: OrderPlanStep,
-  plane: SkillContext["plane"],
-  runId: string,
-  proposalName: string,
-  stepIndex: number,
-): OkxCommandIntent {
-  const clientOrderRef = createClientOrderRef(runId, proposalName, stepIndex);
-  if (step.kind === "swap-place-order") {
-    const params: SwapPlaceOrderParams = {
-      ...step.params,
-      clOrdId: clientOrderRef,
-    };
-    return createCommandIntent(buildSwapPlaceOrderCommand(params, plane), {
-      intentId: `${runId}:${proposalName}:write:${stepIndex}`,
-      stepIndex,
-      safeToRetry: false,
-      module: "swap",
-      requiresWrite: true,
-      clientOrderRef,
-      reason: step.purpose,
-    });
-  }
-
-  return createCommandIntent(buildOptionPlaceOrderCommand(step.params, plane), {
-    intentId: `${runId}:${proposalName}:write:${stepIndex}`,
-    stepIndex,
-    safeToRetry: false,
-    module: "option",
-    requiresWrite: true,
-    clientOrderRef,
-    reason: step.purpose,
-  });
-}
-
-function buildActionsFromIntents(
-  intents: OkxCommandIntent[],
-  walletAddress: string | undefined,
-  chain: string | undefined,
-): ExecutionAction[] {
-  return intents.map((intent) => ({
-    actionId: intent.intentId,
-    stepIndex: intent.stepIndex,
-    kind: intent.module === "swap"
-      ? "swap-place-order" as const
-      : intent.module === "option"
-        ? "option-place-order" as const
-        : "cross-chain-transfer" as const,
-    module: intent.module,
-    requiresWrite: intent.requiresWrite,
-    safeToRetry: intent.safeToRetry,
-    command: intent.command,
-    reason: intent.reason,
-    wallet: walletAddress,
-    chain: chain,
-    clientOrderRef: intent.clientOrderRef,
-    integration: "official-skill",
-  }));
-}
+// ---------------------------------------------------------------------------
+// Counting helpers
+// ---------------------------------------------------------------------------
 
 function countByKind(orderPlan: OrderPlanStep[]): { swap: number; option: number } {
   return orderPlan.reduce(
@@ -315,6 +117,10 @@ function symbolSet(orderPlan: OrderPlanStep[]): string[] {
   return unique.size > 0 ? [...unique] : [FALLBACK_SYMBOL];
 }
 
+// ---------------------------------------------------------------------------
+// Main skill entry point
+// ---------------------------------------------------------------------------
+
 export default async function run(context: SkillContext): Promise<SkillOutput> {
   const proposals = context.artifacts.require<SkillProposal[]>("planning.proposals").data;
   const decision = context.artifacts.require<PolicyDecision>("policy.plan-decision").data;
@@ -322,8 +128,7 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
 
   // Consume wallet identity (optional — falls back gracefully)
   const walletArtifact = context.artifacts.get<AgentWalletIdentity>("identity.agent-wallet")?.data;
-  const walletAddress = walletArtifact?.walletAddress;
-  const chain = walletArtifact?.chain ?? "xlayer";
+  const { walletAddress, chain } = resolveWalletFromArtifacts(walletArtifact);
 
   const proposal = selectProposal(proposals, context.runtimeInput, decision);
   const orderPlan = materializeProposal(proposal, thesis);
