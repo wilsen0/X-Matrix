@@ -5,12 +5,12 @@ import { loadSkillRegistry } from "../dist/runtime/registry.js";
 
 test("skills certify includes all installed skills and passes current contracts", async () => {
   const certification = await certifySkills();
-  assert.equal(certification.report.totalSkills, 20);
-  assert.equal(certification.report.items.length, 20);
+  assert.equal(certification.report.totalSkills, 21);
+  assert.equal(certification.report.items.length, 21);
   assert.equal(certification.report.failedSkills, 0);
-  assert.equal(certification.report.portableSkills, 11);
+  assert.equal(certification.report.portableSkills, 12);
   assert.equal(certification.report.structuralSkills, 9);
-  assert.equal(certification.report.portableProofPassed, 11);
+  assert.equal(certification.report.portableProofPassed, 12);
   assert.ok(certification.summary.includes("TradeMesh Skills Certification"));
   const thesis = certification.report.items.find((item) => item.skill === "trade-thesis");
   assert.ok(thesis);

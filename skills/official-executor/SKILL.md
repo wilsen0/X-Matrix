@@ -1,6 +1,6 @@
 ---
 name: official-executor
-description: "Translate an approved proposal into an auditable OKX CLI command preview."
+description: "Translate an approved proposal into an auditable OKX CLI command preview with wallet-aware on-chain routing."
 stage: executor
 role: executor
 requires: [okx-cex-trade]
@@ -9,7 +9,7 @@ writes: true
 always_on: false
 triggers: [apply, execute, order, 订单, 执行]
 entrypoint: ./run.js
-consumes: [planning.proposals, policy.plan-decision, trade.thesis]
+consumes: [planning.proposals, policy.plan-decision, trade.thesis, identity.agent-wallet]
 produces: [execution.intent-bundle]
 preferred_handoffs: [replay]
 repeatable: false
@@ -22,12 +22,13 @@ proof_goal: "portable proof official executor"
 proof_fixture: ./proof/input.artifacts.json
 proof_target_outputs: [execution.intent-bundle]
 standalone_command: "trademesh skills run official-executor \"<goal>\""
-standalone_route: [portfolio-xray, market-scan, trade-thesis, hedge-planner, scenario-sim, policy-gate, official-executor]
+standalone_route: [portfolio-xray, market-scan, trade-thesis, hedge-planner, scenario-sim, policy-gate, agent-wallet, official-executor]
 standalone_inputs: [goal]
 standalone_outputs: [execution.intent-bundle]
-required_capabilities: [okx-cli, market-read, account-read]
+required_capabilities: [okx-cli, market-read, account-read, agent-wallet, chain:xlayer]
 ---
 
 # Official Executor
 
 Builds a preview of the future OKX CLI command sequence. It does not submit exchange orders yet.
+Now wallet-aware: consumes `identity.agent-wallet` and enriches the `execution.intent-bundle` with actions, wallet, chain, and integration metadata for on-chain routing via X Layer.

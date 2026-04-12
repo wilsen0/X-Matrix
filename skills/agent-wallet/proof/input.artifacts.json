@@ -1,0 +1,27 @@
+{
+  "goal.intake": {
+    "key": "goal.intake",
+    "version": 3,
+    "producer": "proof-fixture",
+    "createdAt": "2026-04-12T00:00:00.000Z",
+    "ruleRefs": [],
+    "doctrineRefs": [],
+    "data": {
+      "rawGoal": "portable proof agent wallet",
+      "normalizedGoal": "portable proof agent wallet",
+      "symbols": [],
+      "targetDrawdownPct": null,
+      "hedgeIntent": "unspecified",
+      "timeHorizon": "unspecified",
+      "planePreference": "demo",
+      "executePreference": "plan_only",
+      "sources": {
+        "symbols": "default",
+        "targetDrawdownPct": "default",
+        "hedgeIntent": "default",
+        "timeHorizon": "default"
+      },
+      "warnings": []
+    }
+  }
+}

@@ -67,6 +67,8 @@ import type {
   SkillRisk,
   SkillCertificationItem,
   SkillCertificationReport,
+  ExecutionAction,
+  AgentWalletIdentity,
 } from "./types.js";
 
 interface PlanOptions {
@@ -132,6 +134,11 @@ interface ExecutionBundle {
   orderPlan: OrderPlanStep[];
   intents: OkxCommandIntent[];
   commandPreview?: CommandPreviewEntry[];
+  actions?: ExecutionAction[];
+  actionPreview?: ExecutionAction[];
+  wallet?: string;
+  chain?: string;
+  integration?: string;
 }
 
 interface StandaloneExecutionResult {
@@ -2402,6 +2409,7 @@ export async function rehearseDemo(options: RehearseOptions = {}): Promise<RunRe
     "diagnosis-synthesizer",
     "rehearsal-planner",
     "policy-gate",
+    "agent-wallet",
     "official-executor",
   ];
   const graph = await runExplicitRoute({
@@ -3016,6 +3024,19 @@ function formatApplySummary(record: RunRecord): string {
   const commands = latestExecution?.results.map(formatExecutionResult).slice(0, 8) ?? [];
   const idempotentHits = idempotentHitCount(latestExecution);
   const proof = latestTraceEntry(record.trace, "mesh-prover")?.metadata?.routeProof as RouteProof | undefined;
+  const officialEntry = latestTraceEntry(record.trace, "official-executor");
+  const wallet = (officialEntry?.metadata as { wallet?: string } | undefined)?.wallet;
+  const chain = (officialEntry?.metadata as { chain?: string } | undefined)?.chain ?? "xlayer";
+  const integration = (officialEntry?.metadata as { integration?: string } | undefined)?.integration ?? "official-skill";
+  const actions = Array.isArray((officialEntry?.metadata as { actions?: unknown[] } | undefined)?.actions)
+    ? (officialEntry?.metadata as { actions?: ExecutionAction[] }).actions!
+    : undefined;
+
+  const commandLines = actions && actions.length > 0
+    ? actions.slice(0, 8).map((action) =>
+        `[action] ${action.actionId} | ${action.kind} | ${action.command}${action.wallet ? ` | wallet=${action.wallet}` : ""}${action.chain ? ` | chain=${action.chain}` : ""}`
+      )
+    : commands;
 
   return [
     ...header("Apply Receipt", record),
@@ -3026,7 +3047,12 @@ function formatApplySummary(record: RunRecord): string {
       `Approval ticket: ${latestExecution?.approvalTicketId ?? "none"}`,
     ]),
     block("Policy Verdict", policyLines(record)),
-    block("Command Preview / Execution", commands.length > 0 ? commands : ["No command preview recorded."]),
+    block("Command Preview / Execution", commandLines.length > 0 ? commandLines : ["No command preview recorded."]),
+    block("Wallet / On-Chain Routing", [
+      `Wallet: ${wallet ?? "not resolved"}`,
+      `Chain: ${chain}`,
+      `Integration: ${integration}`,
+    ]),
     block("Safety Guard Summary", [
       `Execution status: ${latestExecution?.status ?? "n/a"}`,
       `Blocked reason: ${latestExecution?.blockedReason ?? "none"}`,
@@ -3449,6 +3475,22 @@ function exportReport(
   const operatorBrief = operatorBriefOrFallback(record, artifacts);
   const businessBrief = businessBriefOrFallback(record, artifacts);
   const meshRouteProof = latestRouteProof(artifacts);
+  const officialEntry = latestTraceEntry(record.trace, "official-executor");
+  const wallet = (officialEntry?.metadata as { wallet?: string } | undefined)?.wallet;
+  const chain = (officialEntry?.metadata as { chain?: string } | undefined)?.chain ?? "xlayer";
+  const integration = (officialEntry?.metadata as { integration?: string } | undefined)?.integration ?? "official-skill";
+  const actions = Array.isArray((officialEntry?.metadata as { actions?: unknown[] } | undefined)?.actions)
+    ? (officialEntry?.metadata as { actions?: ExecutionAction[] }).actions!
+    : undefined;
+
+  const executionLines = actions && actions.length > 0
+    ? actions.slice(0, 8).map((action) =>
+        `[action] ${action.actionId} | ${action.kind} | ${action.command}${action.wallet ? ` | wallet=${action.wallet}` : ""}${action.chain ? ` | chain=${action.chain}` : ""}`
+      )
+    : latestExecution
+      ? latestExecution.results.map(formatExecutionResult)
+      : ["No execution receipt recorded."];
+
   return [
     `# TradeMesh Export Report`,
     "",
@@ -3487,9 +3529,14 @@ function exportReport(
     markdownSection("Policy Verdict", policyLines(record)),
     markdownSection("Mesh Proof", routeProofLines(meshRouteProof)),
     markdownSection("Contract Proof", contractProofLines(manifestProof)),
+    markdownSection("Wallet / On-Chain Routing", [
+      `Wallet: ${wallet ?? "not resolved"}`,
+      `Chain: ${chain}`,
+      `Integration: ${integration}`,
+    ]),
     markdownSection(
       "Command Preview / Execution Receipt",
-      latestExecution ? latestExecution.results.map(formatExecutionResult) : ["No execution receipt recorded."],
+      executionLines,
     ),
     markdownSection(
       "Evidence",
@@ -3564,6 +3611,7 @@ export function formatReplay(record: RunRecord): string {
   const replayEntry = [...record.trace].reverse().find((entry) => entry.skill === "replay");
   const operatorEntry = [...record.trace].reverse().find((entry) => entry.skill === "operator-summarizer");
   const meshProofEntry = [...record.trace].reverse().find((entry) => entry.skill === "mesh-prover");
+  const officialEntry = [...record.trace].reverse().find((entry) => entry.skill === "official-executor");
   const operatorSummary = (operatorEntry?.metadata as { operatorSummary?: OperatorSummaryV3 } | undefined)?.operatorSummary;
   const operatorBrief = (operatorEntry?.metadata as { operatorBrief?: OperatorBrief } | undefined)?.operatorBrief ??
     (operatorSummary ? buildOperatorBrief(operatorSummary) : undefined);
@@ -3578,6 +3626,20 @@ export function formatReplay(record: RunRecord): string {
   const exportHint = hasExportBundle(record.id)
     ? `Latest export: ${exportPaths(record.id).outputDir}`
     : `Export: node dist/bin/trademesh.js export ${record.id}`;
+  const wallet = (officialEntry?.metadata as { wallet?: string } | undefined)?.wallet;
+  const chain = (officialEntry?.metadata as { chain?: string } | undefined)?.chain ?? "xlayer";
+  const integration = (officialEntry?.metadata as { integration?: string } | undefined)?.integration ?? "official-skill";
+  const actions = Array.isArray((officialEntry?.metadata as { actions?: unknown[] } | undefined)?.actions)
+    ? (officialEntry?.metadata as { actions?: ExecutionAction[] }).actions!
+    : undefined;
+
+  const executionLines = actions && actions.length > 0
+    ? actions.slice(0, 8).map((action) =>
+        `[action] ${action.actionId} | ${action.kind} | ${action.command}${action.wallet ? ` | wallet=${action.wallet}` : ""}${action.chain ? ` | chain=${action.chain}` : ""}`
+      )
+    : latestExecution
+      ? latestExecution.results.map(formatExecutionResult)
+      : ["No execution receipt recorded."];
 
   return [
     ...header("Replay Timeline", record),
@@ -3596,12 +3658,17 @@ export function formatReplay(record: RunRecord): string {
       `Policy verdict: ${record.policyDecision?.outcome ?? "none"}`,
       `Execution verdict: ${latestExecution?.status ?? "none"}`,
     ]),
+    block("Wallet / On-Chain Routing", [
+      `Wallet: ${wallet ?? "not resolved"}`,
+      `Chain: ${chain}`,
+      `Integration: ${integration}`,
+    ]),
     block("Mesh Proof", routeProofLines(meshProof ?? null)),
     ...(contractProof ? [block("Contract Proof", contractProofLines(contractProof))] : []),
     block("Timeline", timelineRaw.length > 0 ? timelineRaw : ["No replay timeline captured."]),
     block("Artifact Handoffs", artifactRaw.length > 0 ? artifactRaw : ["No artifact handoffs captured."]),
     block("Policy Decision", policyLines(record)),
-    block("Execution Receipt", latestExecution ? latestExecution.results.map(formatExecutionResult) : ["No execution receipt recorded."]),
+    block("Execution Receipt", executionLines),
     ...(evidenceRaw.length > 0 ? [block("Evidence", evidenceRaw)] : []),
     block("Export Pointer", [exportHint]),
   ].join("\n");

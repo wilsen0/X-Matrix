@@ -22,7 +22,7 @@ proof_goal: "portable proof idempotency gate"
 proof_fixture: ./proof/input.artifacts.json
 proof_target_outputs: [execution.idempotency-check]
 standalone_command: "trademesh skills run idempotency-gate \"<goal>\" --plane demo"
-standalone_route: [portfolio-xray, market-scan, trade-thesis, hedge-planner, scenario-sim, policy-gate, approval-gate, official-executor, idempotency-gate]
+standalone_route: [portfolio-xray, market-scan, trade-thesis, hedge-planner, scenario-sim, policy-gate, approval-gate, agent-wallet, official-executor, idempotency-gate]
 standalone_inputs: [goal]
 standalone_outputs: [execution.idempotency-check]
 required_capabilities: [okx-cli, market-read, account-read]

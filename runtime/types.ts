@@ -38,7 +38,8 @@ export type ArtifactKey =
   | "diagnostics.reason-catalog"
   | "operations.live-guard"
   | "operations.rehearsal-plan"
-  | "operations.rehearsal-receipt";
+  | "operations.rehearsal-receipt"
+  | "identity.agent-wallet";
 export type RunStatus =
   | "planned"
   | "approval_required"
@@ -65,7 +66,9 @@ export type CapabilityRequirement =
   | "market-read"
   | "account-read"
   | "swap-write"
-  | "option-write";
+  | "option-write"
+  | "agent-wallet"
+  | "chain:xlayer";
 export type ProbeMode = "passive" | "active" | "write";
 export type ProbeReasonCode =
   | "cli_missing"
@@ -227,6 +230,40 @@ export interface CommandPreviewEntry {
   clientOrderRef?: string;
   reason: string;
   command: string;
+}
+
+export interface AgentWalletIdentity {
+  walletAddress: string;
+  chain: string;
+  source: "runtime-input" | "env" | "demo-fallback" | "research-fallback";
+  resolvedAt: string;
+}
+
+export interface ExecutionAction {
+  actionId: string;
+  stepIndex: number;
+  kind: "swap-place-order" | "option-place-order" | "cross-chain-transfer" | "smart-contract-call";
+  module: string;
+  requiresWrite: boolean;
+  safeToRetry: boolean;
+  command: string;
+  reason: string;
+  wallet?: string;
+  chain?: string;
+  clientOrderRef?: string;
+  integration?: string;
+}
+
+export interface ExecutionBundle {
+  proposal: string;
+  orderPlan: OrderPlanStep[];
+  intents: OkxCommandIntent[];
+  commandPreview: CommandPreviewEntry[];
+  actions?: ExecutionAction[];
+  actionPreview?: ExecutionAction[];
+  wallet?: string;
+  chain?: string;
+  integration?: string;
 }
 
 export interface ApprovalTicket {

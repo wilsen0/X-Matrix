@@ -36,6 +36,7 @@ const ARTIFACT_KEYS: ArtifactKey[] = [
   "operations.live-guard",
   "operations.rehearsal-plan",
   "operations.rehearsal-receipt",
+  "identity.agent-wallet",
 ];
 
 const POLICY_OUTCOMES = new Set<PolicyDecision["outcome"]>(["approved", "require_approval", "blocked"]);
@@ -134,6 +135,39 @@ export function validateArtifactData(key: ArtifactKey, data: unknown): void {
     }
     if ("orderPlan" in record) {
       invariant(Array.isArray(record.orderPlan), `Artifact '${key}.orderPlan' must be an array.`);
+    }
+    if ("actions" in record && record.actions !== undefined) {
+      invariant(Array.isArray(record.actions), `Artifact '${key}.actions' must be an array.`);
+    }
+    if ("actionPreview" in record && record.actionPreview !== undefined) {
+      invariant(Array.isArray(record.actionPreview), `Artifact '${key}.actionPreview' must be an array.`);
+    }
+    if ("wallet" in record && record.wallet !== undefined) {
+      invariant(typeof record.wallet === "string", `Artifact '${key}.wallet' must be a string.`);
+    }
+    if ("chain" in record && record.chain !== undefined) {
+      invariant(typeof record.chain === "string", `Artifact '${key}.chain' must be a string.`);
+    }
+    if ("integration" in record && record.integration !== undefined) {
+      invariant(typeof record.integration === "string", `Artifact '${key}.integration' must be a string.`);
+    }
+    return;
+  }
+
+  if (key === "identity.agent-wallet") {
+    const record = asObject(data);
+    invariant(record, `Artifact '${key}' must be an object.`);
+    if ("walletAddress" in record) {
+      invariant(hasString(record.walletAddress), `Artifact '${key}.walletAddress' must be a string.`);
+    }
+    if ("chain" in record) {
+      invariant(hasString(record.chain), `Artifact '${key}.chain' must be a string.`);
+    }
+    if ("source" in record) {
+      invariant(
+        ["runtime-input", "env", "demo-fallback", "research-fallback"].includes(String(record.source)),
+        `Artifact '${key}.source' is invalid.`,
+      );
     }
     return;
   }

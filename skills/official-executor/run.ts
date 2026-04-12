@@ -2,7 +2,10 @@ import { createCommandIntent } from "../../runtime/okx.js";
 import { putArtifact } from "../../runtime/artifacts.js";
 import { createHash } from "node:crypto";
 import type {
+  AgentWalletIdentity,
+  ArtifactKey,
   CommandPreviewEntry,
+  ExecutionAction,
   OkxCommandIntent,
   OptionOrderPlanStep,
   OptionPlaceOrderParams,
@@ -265,6 +268,31 @@ function writeIntentForStep(
   });
 }
 
+function buildActionsFromIntents(
+  intents: OkxCommandIntent[],
+  walletAddress: string | undefined,
+  chain: string | undefined,
+): ExecutionAction[] {
+  return intents.map((intent) => ({
+    actionId: intent.intentId,
+    stepIndex: intent.stepIndex,
+    kind: intent.module === "swap"
+      ? "swap-place-order" as const
+      : intent.module === "option"
+        ? "option-place-order" as const
+        : "cross-chain-transfer" as const,
+    module: intent.module,
+    requiresWrite: intent.requiresWrite,
+    safeToRetry: intent.safeToRetry,
+    command: intent.command,
+    reason: intent.reason,
+    wallet: walletAddress,
+    chain: chain,
+    clientOrderRef: intent.clientOrderRef,
+    integration: "official-skill",
+  }));
+}
+
 function countByKind(orderPlan: OrderPlanStep[]): { swap: number; option: number } {
   return orderPlan.reduce(
     (acc, step) => {
@@ -291,6 +319,12 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
   const proposals = context.artifacts.require<SkillProposal[]>("planning.proposals").data;
   const decision = context.artifacts.require<PolicyDecision>("policy.plan-decision").data;
   const thesis = context.artifacts.require<TradeThesis>("trade.thesis").data;
+
+  // Consume wallet identity (optional — falls back gracefully)
+  const walletArtifact = context.artifacts.get<AgentWalletIdentity>("identity.agent-wallet")?.data;
+  const walletAddress = walletArtifact?.walletAddress;
+  const chain = walletArtifact?.chain ?? "xlayer";
+
   const proposal = selectProposal(proposals, context.runtimeInput, decision);
   const orderPlan = materializeProposal(proposal, thesis);
   const symbols = symbolSet(orderPlan);
@@ -308,6 +342,15 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
   const preview = intents.map((intent) => previewEntry(intent));
   const counts = countByKind(orderPlan);
 
+  // Build structured ExecutionAction entries
+  const actions = buildActionsFromIntents(intents, walletAddress, chain);
+  const actionPreview = actions;
+
+  const consumedArtifacts: ArtifactKey[] = ["planning.proposals", "policy.plan-decision", "trade.thesis"];
+  if (walletArtifact) {
+    consumedArtifacts.push("identity.agent-wallet");
+  }
+
   putArtifact(context.artifacts, {
     key: "execution.intent-bundle",
     version: context.manifest.artifactVersion,
@@ -317,20 +360,31 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
       orderPlan,
       intents,
       commandPreview: preview,
+      actions,
+      actionPreview,
+      wallet: walletAddress,
+      chain,
+      integration: "official-skill",
     },
     ruleRefs: proposal.evidence?.ruleRefs ?? thesis.ruleRefs,
     doctrineRefs: proposal.evidence?.doctrineRefs ?? thesis.doctrineRefs,
   });
 
+  const walletFacts = walletAddress
+    ? [`Wallet: ${walletAddress} (chain: ${chain}).`]
+    : ["No wallet identity resolved."];
+
   return {
     skill: "official-executor",
     stage: "executor",
     goal: context.goal,
-    summary: "Materialize a deterministic OKX CLI preview from the approved proposal and shared thesis risk budget.",
+    summary: "Materialize a deterministic OKX CLI preview from the approved proposal, enriched with wallet identity and on-chain routing metadata.",
     facts: [
       `Selected proposal: ${proposal.name}.`,
       `Materialized swap writes: ${counts.swap}.`,
       `Materialized option writes: ${counts.option}.`,
+      ...walletFacts,
+      `Integration: official-skill (chain: ${chain}).`,
     ],
     constraints: {
       selectedProposal: proposal.name,
@@ -338,6 +392,9 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
       swapWriteIntentCount: counts.swap,
       optionWriteIntentCount: counts.option,
       writeIntentCount: counts.swap + counts.option,
+      wallet: walletAddress ?? null,
+      chain,
+      integration: "official-skill",
     },
     proposal: [],
     risk: {
@@ -352,9 +409,9 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
       allowedModules: proposal.requiredModules ?? ["account", "market", "swap", "option"],
     },
     handoff: "replay",
-    handoffReason: "Execution preview is now audit-ready.",
+    handoffReason: "Execution preview is now audit-ready with wallet routing.",
     producedArtifacts: ["execution.intent-bundle"],
-    consumedArtifacts: ["planning.proposals", "policy.plan-decision", "trade.thesis"],
+    consumedArtifacts,
     ruleRefs: proposal.evidence?.ruleRefs ?? thesis.ruleRefs,
     doctrineRefs: proposal.evidence?.doctrineRefs ?? thesis.doctrineRefs,
     metadata: {
@@ -362,6 +419,11 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
       intents,
       orderPlan,
       commandPreview: preview,
+      actions,
+      actionPreview,
+      wallet: walletAddress,
+      chain,
+      integration: "official-skill",
     },
     timestamp: new Date().toISOString(),
   };

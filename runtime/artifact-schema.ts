@@ -27,6 +27,7 @@ const CURRENT_ARTIFACT_VERSIONS: Record<ArtifactKey, number> = {
   "operations.live-guard": 3,
   "operations.rehearsal-plan": 3,
   "operations.rehearsal-receipt": 3,
+  "identity.agent-wallet": 3,
 };
 
 export function currentArtifactVersion(key: ArtifactKey): number {
