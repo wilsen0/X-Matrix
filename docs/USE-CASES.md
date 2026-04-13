@@ -1,19 +1,31 @@
 # Skills Mesh Use Cases
 
-This document answers one simple product question:
+This document answers one product question:
 
-> When would I actually open Skills Mesh again?
+> When would I actually open Skills Mesh and use it again?
 
-If the answer is only “for a demo”, the product is weak.
-If the answer is “because it helps me make a better supervised decision”, the product is real.
+If the answer is only “for a demo”, the product is not done.
 
 ---
 
-## 1. Position risk check before acting
+## Core product value
+
+Skills Mesh is useful when you need a risky onchain decision flow to be:
+
+- **structured** instead of improvised
+- **supervised** instead of blindly automated
+- **replayable** instead of disappearing into a terminal session
+- **portable** instead of trapped in one machine
+
+It is especially valuable when the cost of confusion is high.
+
+---
+
+## Use Case 1 — Position risk check before you do anything stupid
 
 ### Situation
 
-You hold BTC or ETH and want to know whether your downside risk is getting uncomfortable.
+You hold BTC or ETH and feel exposed, but do not want to improvise under emotion.
 
 ### What you ask
 
@@ -21,76 +33,48 @@ You hold BTC or ETH and want to know whether your downside risk is getting uncom
 
 ### What Skills Mesh gives you
 
-- structured goal intake
-- market + portfolio context
-- ranked hedge proposals
-- policy-aware feasibility
-- a visible apply path instead of vague advice
+- normalized goal intake
+- portfolio and market context
+- ranked hedge / de-risk proposals
+- policy-aware actionability feedback
+- a supervised apply path instead of impulse execution
 
-### Why this is valuable
+### Why this matters
 
-Most assistants stop at analysis.
-Skills Mesh turns analysis into a supervised route toward action.
-
----
-
-## 2. Compare hedge styles before choosing one
-
-### Situation
-
-You do not want “the answer”.
-You want a few possible responses to risk and the trade-offs between them.
-
-### What you ask
-
-> Give me a downside protection plan for BTC on demo first.
-
-### What Skills Mesh gives you
-
-- multiple proposals
-- proposal names you can inspect and choose from
-- actionability / capability feedback
-- policy screening before execution
-
-### Why this is valuable
-
-The product is not forcing one strategy.
-It gives you a controlled decision surface.
+The product turns vague fear into a bounded decision process.
+That alone is valuable.
 
 ---
 
-## 3. Rehearse on demo before trusting execution
+## Use Case 2 — Rehearse before real execution
 
 ### Situation
 
-You want to know what would happen before you ever allow a real write.
+You think you want to hedge, but you do not want your first look at the route to be the real execution moment.
 
 ### What you do
 
-- run `doctor`
-- run `plan`
-- run `apply` on `demo`
-- inspect route and output
+Run the workflow on `demo` first.
 
 ### What Skills Mesh gives you
 
-- preview-first execution culture
-- plane separation
-- explicit approval model
-- a safer rehearsal loop
+- environment readiness checks
+- proposal comparison
+- wallet-aware execution route preview
+- exportable evidence pack
+- replayable proof of what would happen
 
-### Why this is valuable
+### Why this matters
 
-This is where trust starts.
-Not from marketing claims, but from repeated safe rehearsal.
+The product makes “practice first” a default behavior, not an afterthought.
 
 ---
 
-## 4. Verify wallet-aware X Layer routing
+## Use Case 3 — Verify wallet-aware X Layer routing
 
 ### Situation
 
-You want to verify that execution is bound to a wallet identity and that eligible X Layer swap actions route correctly.
+You want to know whether the system is just talking about onchain execution, or whether it can actually bind a wallet identity and route an eligible action correctly.
 
 ### What you do
 
@@ -98,118 +82,121 @@ Use a swap-style proposal such as `perp-short`.
 
 ### What Skills Mesh gives you
 
-- wallet-bound execution metadata
-- chain-aware route selection
-- visible `onchainos` path in output
-- proof that the route is not just conceptual
+Visible routing signals such as:
 
-### Why this is valuable
+- `Wallet: <address>`
+- `Integration: onchainos`
+- `onchainos swap execute ... --wallet <address>`
 
-This turns “agentic onchain workflow” from a slogan into something inspectable.
+### Why this matters
+
+This is where the product stops being generic agent orchestration and starts becoming a chain-aware execution system.
 
 ---
 
-## 5. Export a decision trail for later review
+## Use Case 4 — Keep evidence after the decision
 
 ### Situation
 
-You do not just want a result.
-You want to come back later and understand what happened.
+You already made the call, but later you need to answer:
 
-### What you do
-
-- export the run
-- replay from bundle
+- what did we see?
+- what did the system recommend?
+- what was executed or previewed?
+- what was blocked?
+- what route produced this outcome?
 
 ### What Skills Mesh gives you
 
-- report
+- replay
+- export
+- route proof
 - operator summary
 - portable bundle
-- route proof
 
-### Why this is valuable
+### Why this matters
 
-Useful systems should not erase their own reasoning path.
-They should leave behind something you can audit.
+Most agents are useful only in the moment.
+Skills Mesh is useful before, during, and after the decision.
 
 ---
 
-## 6. Resume work without starting from zero
+## Use Case 5 — Reuse the workflow instead of rebuilding it
 
 ### Situation
 
-A workflow already produced enough artifacts, and you do not want to repeat everything.
+You do not want a one-off script for each new strategy or workflow.
 
 ### What Skills Mesh gives you
 
-- resume-friendly artifact chain
-- replayable proofs
-- bundle-based rerun path
-- safe boundaries for partial continuation
+- installable skills
+- typed artifact handoffs
+- auto-composed dependency graph
+- one runtime with one trust model
+- reusable execution and audit infrastructure
 
-### Why this is valuable
+### Why this matters
 
-This saves time and reduces repeated execution risk.
+The product value is not one hedge route.
+The product value is a reusable framework for wallet-aware onchain workflows.
 
 ---
 
-## 7. Use it as a safety envelope, not just a strategy engine
+## Use Case 6 — Explain decisions to yourself later
 
 ### Situation
 
-You already have ideas, but you do not trust raw AI output to jump straight into execution.
+A lot of “AI tools” feel helpful in the moment, then become impossible to inspect later.
 
 ### What Skills Mesh gives you
 
-- write isolation
-- approval gate
-- progressive trust planes
-- static safety verification
-- idempotency and reconciliation support
+- explicit artifacts
+- route-level traceability
+- structured outputs instead of vague chat text
+- replayable run history
 
-### Why this is valuable
+### Why this matters
 
-The real product value is not only “better ideas”.
-It is **safer movement from idea to action**.
+This is a product for people who care about operational memory, not just flashy interaction.
 
 ---
 
-## 8. Who this is good for right now
+## What Skills Mesh is good for right now
 
-Skills Mesh is useful today if you care about at least one of these:
+Today, the strongest practical uses are:
 
-- you want structured hedge planning instead of chatty market opinions
-- you want demo-first execution rehearsal
-- you want wallet-aware X Layer routing to be visible and inspectable
-- you want replay/export proof after a workflow finishes
-- you want a modular skill runtime instead of one giant strategy script
-
----
-
-## 9. What it is not trying to be
-
-Right now, Skills Mesh is **not** mainly trying to be:
-
-- a retail charting terminal
-- a high-frequency execution engine
-- a magical fully autonomous trader
-- a chat bot that gives one-shot opinions and forgets them
-
-It is trying to be something more solid:
-
-> a reusable runtime for supervised, structured, replayable onchain decision workflows
+- downside protection planning
+- demo-first hedge rehearsal
+- wallet-aware X Layer route verification
+- exportable decision evidence
+- replayable execution review
 
 ---
 
-## 10. The product truth
+## What it is not trying to be
 
-People do not come back for architecture diagrams.
-They come back because the product helps them:
+Skills Mesh is **not** trying to be:
 
-- reduce ambiguity
-- compare choices
-- preview consequences
-- keep proof of what happened
+- a casual trading toy
+- a one-click fully autonomous money machine
+- a chat-only black box
+- a pile of disconnected strategy scripts
 
-That is the bar Skills Mesh should keep chasing.
+That is intentional.
+
+---
+
+## Product test
+
+A good product test is:
+
+> Would I still want this if nobody were scoring the demo?
+
+For Skills Mesh, the answer should be yes if you care about:
+
+- safer decision flow
+- auditability
+- repeatability
+- wallet-aware execution control
+
+If not, then the next product work should improve usability until the answer becomes yes.

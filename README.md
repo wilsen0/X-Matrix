@@ -81,18 +81,29 @@ For supervised operations procedures, see [docs/RUNBOOK-M2.5.md](./docs/RUNBOOK-
 
 ## Quick Start
 
+If you only want the fastest path to first value, use this mental model:
+
+> `doctor -> plan -> apply -> export -> replay`
+
 ```bash
 npm install && npm run build
 
 # Health check (includes wallet, xlayer-chain, official-skill probes)
-trademesh doctor --probe active --plane demo
+trademesh doctor --probe active --plane demo --strict --strict-target apply
 
-# Full demo flow: doctor → certify → plan → apply → export → replay
-pnpm demo:flow
+# Create a plan from a normal goal
+trademesh plan "protect BTC downside with 4% max drawdown" --plane demo
 
-# With execution + receipt verification
-pnpm demo:flow -- --execute --approved-by alice
+# Apply a swap-style proposal to verify wallet-aware X Layer routing
+trademesh apply <run-id> --plane demo --proposal perp-short --approve --approved-by demo-operator
+
+# Export and replay the result
+trademesh export <run-id>
+trademesh replay --bundle .trademesh/exports/<run-id>/bundle.json
 ```
+
+For a step-by-step first run, see [docs/QUICKSTART.md](./docs/QUICKSTART.md).
+For product-oriented scenarios, see [docs/USE-CASES.md](./docs/USE-CASES.md).
 
 ## Core Commands
 
