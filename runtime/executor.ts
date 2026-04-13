@@ -2781,6 +2781,29 @@ function actionabilityLines(record: RunRecord): string[] {
   });
 }
 
+function recommendationLensLines(record: RunRecord): string[] {
+  if (record.proposals.length === 0) {
+    return ["No proposal recommendations are available."];
+  }
+
+  const riskBest = record.proposals.find((proposal) => proposal.recommended) ?? record.proposals[0];
+  const routingBest = record.proposals.find((proposal) => proposal.name === "perp-short" && proposal.actionable)
+    ?? record.proposals.find((proposal) => proposal.name === "de-risk" && proposal.actionable)
+    ?? null;
+  const lowestFriction = record.proposals.find((proposal) => proposal.actionable)
+    ?? null;
+
+  return [
+    `Best risk hedge: ${riskBest?.name ?? "n/a"}${proposalRouteHint(riskBest?.name) ? ` | ${proposalRouteHint(riskBest?.name)}` : ""}`,
+    ...(routingBest
+      ? [`Best X Layer routing check: ${routingBest.name} | ${proposalRouteHint(routingBest.name)}`]
+      : []),
+    ...(lowestFriction
+      ? [`Best low-friction demo path: ${lowestFriction.name} | readiness=${lowestFriction.executionReadiness ?? "unknown"}`]
+      : []),
+  ];
+}
+
 function goalIntakeLines(record: RunRecord): string[] {
   const intake = traceGoalIntake(record);
   if (!intake) {
@@ -3065,6 +3088,7 @@ function formatPlanSummary(record: RunRecord): string {
       ...traceFacts(record, "trade-thesis"),
     ]),
     block("Proposal Ranking", proposalLines(record)),
+    block("Recommendation Lenses", recommendationLensLines(record)),
     block("Actionability Summary", actionabilityLines(record)),
     block("Policy Preview", policyLines(record)),
     block("Mesh Proof", routeProofLines(proof ?? null)),
