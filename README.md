@@ -287,7 +287,8 @@ Expected signal in the output:
 | [中文详细版](./README.zh-CN.md) | Full product walkthrough: positioning, architecture, safety model, user value |
 | [Quickstart](./docs/QUICKSTART.md) | Fastest path to the first useful run: doctor → plan → apply → export → replay |
 | [Use Cases](./docs/USE-CASES.md) | Real product scenarios: when to use Skills Mesh again, and why it matters |
-| [Build X Demo Script](./docs/BUILDX-DEMO-SCRIPT.md) | 90-second and 3-minute recording script for the submission demo |
+| [Next Steps](./docs/NEXT-STEPS.md) | Current execution board: re-verify the product path, capture proof, improve UX, then record |
+| [Build X Demo Script](./docs/BUILDX-DEMO-SCRIPT.md) | Proof-first demo and recording script for the core product path |
 | [Build X Submission Checklist](./docs/SUBMISSION-CHECKLIST.md) | Final submission control sheet: repo, proof, video, forms, and anti-footgun checks |
 | [Operations Runbook](./docs/RUNBOOK-M2.5.md) | Supervised operations: doctor loop, live guard, ledger recovery, proof rerun |
 | [Trading Methodology](./docs/METHODOLOGY.md) | Knowledge layer: methodology, rules, book distillations |

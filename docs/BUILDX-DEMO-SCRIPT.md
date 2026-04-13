@@ -1,8 +1,8 @@
-# Skills Mesh Build X Demo Script
+# Skills Mesh Demo Script
 
-This document is the operator-facing recording script for the Build X Season 2 submission.
+This document is the operator-facing demo and recording script.
 
-Goal: show that Skills Mesh is not just a strategy demo, but a **reusable proof-carrying skill product** for **agentic onchain workflows on X Layer**.
+Goal: verify and show the core product path of Skills Mesh — not just a strategy clip, but a **reusable proof-carrying skill product** for **agentic onchain workflows on X Layer**.
 
 ---
 
@@ -20,9 +20,9 @@ The recording should make 5 things obvious:
 
 ## 2. Recommended demo variants
 
-### Variant A — 90 second judge demo
+### Variant A — 90 second proof demo
 
-Use this when time is tight.
+Use this when time is tight and you want to prove the core path fast.
 
 Sequence:
 
@@ -37,9 +37,9 @@ Sequence:
 6. Run `export`
 7. Run `replay`
 
-### Variant B — 3 minute full submission demo
+### Variant B — 3 minute product walkthrough
 
-Use this for the main recorded submission.
+Use this when you want to show the product path with a little more context.
 
 Sequence:
 

@@ -2,7 +2,7 @@
 
 Use this as the final submission control sheet.
 
-Goal: make sure the Build X submission is not just technically strong, but also **judge-friendly, complete, and easy to verify**.
+Goal: make sure the Build X submission is not just technically strong, but also **product-grounded, complete, and easy to verify**.
 
 ---
 
@@ -116,19 +116,19 @@ Fill these before final submission:
 
 ---
 
-## 4. Judge-facing short materials
+## 4. Short materials grounded in product truth
 
-### A. Judge one-pager
+### A. One-page summary
 
-- [ ] Create a one-page summary doc
+- [ ] Create a one-page summary doc only if it reflects actual product behavior
 - [ ] Include:
   - [ ] What it is
-  - [ ] Why it matters
+  - [ ] Why it matters in normal use, not only in demo form
   - [ ] Why X Layer
   - [ ] Why Agentic Wallet
   - [ ] Why onchainos
   - [ ] What is verified today
-  - [ ] How to evaluate in 60-90 seconds
+  - [ ] How to understand it in 60-90 seconds
 
 ### B. Submission brief
 
