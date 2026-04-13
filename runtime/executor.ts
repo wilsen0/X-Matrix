@@ -550,6 +550,19 @@ function verificationFriendlyProposal(proposals: SkillProposal[]): string | unde
     ?? proposals.find((proposal) => proposal.name === "de-risk" && proposal.actionable)?.name;
 }
 
+function applyPurposeHint(proposalName: string | null | undefined, integration: string, mode: string | undefined): string | undefined {
+  if (!proposalName) {
+    return undefined;
+  }
+  if (integration === "onchainos") {
+    return mode === "dry-run"
+      ? "Purpose: preview a wallet-aware X Layer route before live execution"
+      : "Purpose: execute a wallet-aware X Layer route";
+  }
+  const routeHint = proposalRouteHint(proposalName);
+  return routeHint ? `Purpose: ${routeHint}` : undefined;
+}
+
 function certificationTotals(items: SkillCertificationItem[]): {
   passedSkills: number;
   failedSkills: number;
@@ -3129,10 +3142,15 @@ function formatApplySummary(record: RunRecord): string {
     );
   }
 
+  const selectedProposalName = latestExecution?.proposal ?? record.selectedProposal ?? "n/a";
+  const purposeHint = applyPurposeHint(selectedProposalName, integration, latestExecution?.mode);
+
   return [
     ...header("Apply Receipt", record),
     block("Selected Proposal", [
-      `Proposal: ${latestExecution?.proposal ?? record.selectedProposal ?? "n/a"}`,
+      `Proposal: ${selectedProposalName}`,
+      ...(proposalRouteHint(selectedProposalName) ? [`Route type: ${proposalRouteHint(selectedProposalName)}`] : []),
+      ...(purposeHint ? [purposeHint] : []),
       `Mode: ${latestExecution?.mode ?? "n/a"}`,
       `Approval provided: ${latestExecution?.approvalProvided ? "yes" : "no"}`,
       `Approval ticket: ${latestExecution?.approvalTicketId ?? "none"}`,

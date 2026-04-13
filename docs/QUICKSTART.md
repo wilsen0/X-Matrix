@@ -67,11 +67,18 @@ What you should expect:
 
 - a new `run-id`
 - ranked proposals
+- recommendation lenses
 - policy feedback
 - actionability / capability hints
 
 This is the first useful moment of the product.
 Even if you stop here, you already have structured decision support instead of free-form AI text.
+
+Read the lenses like this:
+
+- **Best risk hedge** = strongest default protection choice
+- **Best X Layer routing check** = best proposal for proving wallet-aware `onchainos` routing
+- **Best low-friction demo path** = easiest proposal to preview on `demo`
 
 ---
 

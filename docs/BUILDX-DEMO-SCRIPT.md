@@ -116,6 +116,7 @@ What to say:
 Look for:
 
 - proposal ranking
+- recommendation lenses
 - policy preview
 - mesh proof
 - generated `run_<id>`
