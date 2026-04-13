@@ -321,7 +321,7 @@ function walletStatus(
       "agent-wallet",
       "ready",
       "Agent wallet resolved via environment variable.",
-      [`Env: SKILLS_MESH_AGENT_WALLET set (${envWallet.trim().slice(0, 10)}…)`],
+      ["Skill: installed", `Env: SKILLS_MESH_AGENT_WALLET set (${envWallet.trim().slice(0, 10)}…)`],
       "No action required.",
     );
   }

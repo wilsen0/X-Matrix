@@ -38,7 +38,15 @@ What to check:
 - apply output clearly shows wallet-aware X Layer / `onchainos` routing
 - export/replay output is easy to explain
 
-Status: **next action**
+Status: **verified once on 2026-04-13, keep re-running after UX changes**
+
+Current findings from the latest run:
+
+- the core path does work end to end in dry-run mode
+- `apply --proposal perp-short` clearly shows wallet-aware X Layer / `onchainos` routing
+- `export` and `replay --bundle` work cleanly
+- but `plan` still nudges users toward `protective-put` in `Next Safe Action`, which is not the best proposal when the goal is proving the X Layer swap route
+- `Mesh Proof` currently reports `proofPassed: no` because `live-guard` is considered redundant on this route; this is acceptable for now as a runtime truth, but it is a product/UX issue worth fixing or explaining
 
 ---
 
@@ -54,6 +62,13 @@ Required frames:
    - `Integration: onchainos`
    - `onchainos swap execute ...`
 3. `replay --bundle` result showing route proof / bundle replay
+
+Recommended screenshot names:
+
+- `01-plan-ranked-proposals.png`
+- `02-apply-onchainos-routing.png`
+- `03-export-bundle-paths.png`
+- `04-replay-bundle-proof.png`
 
 Status: **next action**
 
