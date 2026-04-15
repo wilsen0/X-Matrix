@@ -122,6 +122,26 @@ X-Matrix 把职责拆分到独立的 skill 中：
 
 当前版本最完整的能力是"组合风险观察与对冲规划"。
 
+### 实时运行演示
+
+基于 OKX 实盘 API + X Layer 集成的真实运行截图：
+
+#### 1. Doctor — A 级就绪
+全模块健康检查，包含钱包绑定、X Layer 链、OKX API 连通性：
+![Doctor Grade A](./screenshots/01-doctor-grade-a.jpg)
+
+#### 2. Skills Graph — 21 节点拓扑
+自动发现的 skill mesh，含 artifact 合同与依赖边：
+![Skills Graph](./screenshots/02-skills-graph.jpg)
+
+#### 3. Plan — 评分排序提案
+自然语言目标 → 结构化提案 + policy 预览：
+![Plan Proposals](./screenshots/03-plan-proposals.jpg)
+
+#### 4. Apply — 钱包感知链上路由
+Agentic Wallet (`0x2dcb...eaf7e`) 绑定执行 + X Layer 链元数据：
+![Apply Routing](./screenshots/04-apply-routing.jpg)
+
 ### 用户体验
 
 通过 OpenClaw 对话即可完成完整工作流：
