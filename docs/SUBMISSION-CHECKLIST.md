@@ -187,7 +187,7 @@ Before submission, verify all of these:
 cd ~/apps/apps/okx-skill-mesh
 pnpm build
 pnpm test
-export SKILLS_MESH_AGENT_WALLET=0x2dcb1965ec07932bfaa165b043e0a7dc9b9eaf7e
+cp .env.example .env   # fill in your wallet address
 node dist/bin/trademesh.js doctor --probe active --plane demo --strict --strict-target apply
 node dist/bin/trademesh.js skills certify --strict
 node dist/bin/trademesh.js plan "protect BTC downside with 4% max drawdown" --plane demo
