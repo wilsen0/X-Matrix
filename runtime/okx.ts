@@ -1,6 +1,13 @@
 import { createHmac } from "node:crypto";
 import process from "node:process";
+import { ProxyAgent, setGlobalDispatcher } from "undici";
 import { getProjectPaths } from "./paths.js";
+
+// Configure HTTP proxy if available (Node.js fetch doesn't read env vars automatically)
+const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+if (proxyUrl) {
+  setGlobalDispatcher(new ProxyAgent(proxyUrl));
+}
 import type {
   CapabilitySnapshot,
   ExecutionPlane,
