@@ -1,12 +1,23 @@
 # TradeMesh Progress
 
-> Last updated: 2026-03-24
+> Last updated: 2026-04-15
 
 ## Current State
 
 - Version: `v3.9.0`
-- Product framing: `CLI X-Matrix 2.0 for OKX`
+- Package name: `x-matrix`
+- Product framing: `X-Matrix CLI for OKX Build X Hackathon S2`
 - Status: production-grade supervised execution M2.8 (`portable verified bundles + demo receipt verification + business-first replay/export`)
+
+## Recent Changes (since 2026-04-13)
+
+- **Rebranded** from "Skills Mesh" to **"X-Matrix"** (source, docs, CLI banner, tests)
+- **Fixed** live-guard minimality false positive (guardrail skills exempted from route redundancy check)
+- **Added** `.env` auto-load — agent wallet address loaded automatically, no manual export needed
+- **Added** `.env.example` for new user onboarding
+- **Updated** QUICKSTART to guide `.env` setup
+- **Agent wallet resolved** via OKX Agentic Wallet (Google OAuth): `0x2dcb1965ec07932bfaa165b043e0a7dc9b9eaf7e`
+- **Verified** demo end-to-end: plan → apply → replay with real wallet address and onchainos routing
 
 ## What Is Now Implemented
 
