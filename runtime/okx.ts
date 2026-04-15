@@ -1,8 +1,5 @@
-import { access, readFile } from "node:fs/promises";
-import { constants } from "node:fs";
-import { join } from "node:path";
-import { homedir } from "node:os";
-import { spawnSync } from "node:child_process";
+import { createHmac } from "node:crypto";
+import process from "node:process";
 import { getProjectPaths } from "./paths.js";
 import type {
   CapabilitySnapshot,
@@ -42,24 +39,135 @@ export interface OkxMarketSnapshot {
   errors: string[];
 }
 
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path, constants.F_OK);
-    return true;
-  } catch {
-    return false;
-  }
+// --- OKX REST API helpers ---
+
+const OKX_BASE_URL = "https://www.okx.com";
+
+interface OkxEndpoint {
+  method: string;
+  path: string;
+  query: Record<string, string>;
+  needsAuth: boolean;
 }
 
-function lookupOkxPath(): string | undefined {
-  const okxLookup = spawnSync("bash", ["-lc", "command -v okx"], { encoding: "utf8" });
-  if (okxLookup.status !== 0) {
-    return undefined;
+function hasApiCredentials(): boolean {
+  return Boolean(
+    process.env.OKX_API_KEY &&
+    process.env.OKX_SECRET_KEY &&
+    process.env.OKX_PASSPHRASE,
+  );
+}
+
+function argsToEndpoint(args: string[]): OkxEndpoint | null {
+  const [domain, action, ...rest] = args;
+  if (!domain || !action) return null;
+
+  // Market endpoints (no auth needed)
+  if (domain === "market") {
+    if (action === "ticker" && rest[0]) {
+      return { method: "GET", path: "/api/v5/market/ticker", query: { instId: rest[0] }, needsAuth: false };
+    }
+    if (action === "candles" && rest[0]) {
+      const query: Record<string, string> = { instId: rest[0] };
+      for (let i = 1; i < rest.length; i++) {
+        if (rest[i] === "--bar" && rest[i + 1]) { query.bar = rest[++i]; continue; }
+        if (rest[i] === "--limit" && rest[i + 1]) { query.limit = rest[++i]; continue; }
+      }
+      return { method: "GET", path: "/api/v5/market/candles", query, needsAuth: false };
+    }
+    if (action === "funding-rate" && rest[0]) {
+      return { method: "GET", path: "/api/v5/market/funding-rate", query: { instId: rest[0] }, needsAuth: false };
+    }
+    if (action === "orderbook" && rest[0]) {
+      const query: Record<string, string> = { instId: rest[0] };
+      for (let i = 1; i < rest.length; i++) {
+        if (rest[i] === "--sz" && rest[i + 1]) { query.sz = rest[++i]; continue; }
+      }
+      return { method: "GET", path: "/api/v5/market/books", query, needsAuth: false };
+    }
   }
 
-  const path = okxLookup.stdout.trim();
-  return path.length > 0 ? path : undefined;
+  // Account endpoints (auth required)
+  if (domain === "account") {
+    if (action === "balance") {
+      return { method: "GET", path: "/api/v5/account/balance", query: {}, needsAuth: true };
+    }
+    if (action === "positions") {
+      return { method: "GET", path: "/api/v5/account/positions", query: {}, needsAuth: true };
+    }
+    if (action === "fee-rates") {
+      return { method: "GET", path: "/api/v5/account/trade-fee", query: { instType: "SWAP" }, needsAuth: true };
+    }
+    if (action === "bills") {
+      return { method: "GET", path: "/api/v5/account/bills", query: {}, needsAuth: true };
+    }
+  }
+
+  // Trade endpoints (auth required)
+  if (domain === "trade") {
+    if (action === "orders-history") {
+      const query: Record<string, string> = {};
+      for (let i = 0; i < rest.length; i++) {
+        if (rest[i] === "--clOrdId" && rest[i + 1]) { query.clOrdId = rest[++i]; continue; }
+        if (rest[i] === "--instId" && rest[i + 1]) { query.instId = rest[++i]; continue; }
+      }
+      return { method: "GET", path: "/api/v5/trade/orders-history", query, needsAuth: true };
+    }
+  }
+
+  return null;
 }
+
+function signOkxRequest(
+  timestamp: string,
+  method: string,
+  requestPath: string,
+  secretKey: string,
+): string {
+  const message = `${timestamp}${method.toUpperCase()}${requestPath}`;
+  return createHmac("sha256", secretKey).update(message).digest("base64");
+}
+
+function buildAuthHeaders(method: string, requestPath: string): Record<string, string> {
+  const timestamp = new Date().toISOString();
+  const sign = signOkxRequest(
+    timestamp,
+    method,
+    requestPath,
+    process.env.OKX_SECRET_KEY ?? "",
+  );
+  return {
+    "OK-ACCESS-KEY": process.env.OKX_API_KEY ?? "",
+    "OK-ACCESS-SIGN": sign,
+    "OK-ACCESS-TIMESTAMP": timestamp,
+    "OK-ACCESS-PASSPHRASE": process.env.OKX_PASSPHRASE ?? "",
+  };
+}
+
+function buildHeaders(plane: ExecutionPlane, needsAuth: boolean, requestPath: string, method: string): Record<string, string> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (plane === "demo") {
+    headers["x-simulated-trading"] = "1";
+  }
+  if (needsAuth) {
+    Object.assign(headers, buildAuthHeaders(method, requestPath));
+  }
+  return headers;
+}
+
+function endpointToUrl(endpoint: OkxEndpoint): string {
+  const qs = new URLSearchParams(endpoint.query).toString();
+  return `${OKX_BASE_URL}${endpoint.path}${qs ? `?${qs}` : ""}`;
+}
+
+function requestPathForSign(endpoint: OkxEndpoint): string {
+  const qs = new URLSearchParams(endpoint.query).toString();
+  return `${endpoint.path}${qs ? `?${qs}` : ""}`;
+}
+
+// --- Display helpers ---
 
 function tokenize(command: string): string[] {
   return (
@@ -69,19 +177,29 @@ function tokenize(command: string): string[] {
   );
 }
 
+export function buildOkxCommand(args: string[], plane: ExecutionPlane): string {
+  const parts = ["okx", ...args];
+  if (plane === "demo") parts.push("--profile", "demo", "--json");
+  else if (plane === "live") parts.push("--profile", "live", "--json");
+  else parts.push("--json");
+  return parts.join(" ");
+}
+
+// --- Error classification ---
+
 function summarizeOkxErrorPayload(payload: Record<string, unknown>): string {
   const code = typeof payload.code === "string" || typeof payload.code === "number"
     ? String(payload.code)
     : "unknown";
   const msg = typeof payload.msg === "string" && payload.msg.trim().length > 0
     ? payload.msg.trim()
-    : "okx CLI response contained a non-zero code";
+    : "OKX API response contained a non-zero code";
   return `OKX response code=${code}: ${msg}`;
 }
 
 function classifyProbeReason(message: string): ProbeReasonCode {
   const normalized = message.toLowerCase();
-  if (normalized.includes("not installed on path") || normalized.includes("enoent")) {
+  if (normalized.includes("not installed on path") || normalized.includes("enoent") || normalized.includes("api key")) {
     return "cli_missing";
   }
   if (normalized.includes("timed out") || normalized.includes("etimedout") || normalized.includes("timeout")) {
@@ -90,7 +208,6 @@ function classifyProbeReason(message: string): ProbeReasonCode {
   if (
     normalized.includes("unauthorized") ||
     normalized.includes("auth") ||
-    normalized.includes("api key") ||
     normalized.includes("permission denied") ||
     normalized.includes("forbidden")
   ) {
@@ -120,28 +237,13 @@ function classifyProbeReason(message: string): ProbeReasonCode {
 }
 
 function nextActionForProbeReason(reasonCode: ProbeReasonCode, plane: ExecutionPlane): string {
-  if (reasonCode === "cli_missing") {
-    return `node dist/bin/trademesh.js doctor --probe active --plane ${plane}`;
-  }
-  if (reasonCode === "auth_failed") {
-    return `node dist/bin/trademesh.js doctor --probe active --plane ${plane}`;
-  }
-  if (reasonCode === "network_error" || reasonCode === "timeout") {
-    return `node dist/bin/trademesh.js doctor --probe active --plane ${plane}`;
-  }
-  if (reasonCode === "schema_mismatch") {
-    return `node dist/bin/trademesh.js doctor --probe active --plane ${plane}`;
-  }
-  if (reasonCode === "rate_limited") {
-    return `node dist/bin/trademesh.js doctor --probe active --plane ${plane}`;
-  }
   return `node dist/bin/trademesh.js doctor --probe active --plane ${plane}`;
 }
 
 function detectOkxExecutionError(stdout: string, requiresWrite: boolean): string | null {
   const trimmed = stdout.trim();
   if (!trimmed) {
-    return requiresWrite ? "OKX CLI returned empty stdout for a write intent." : null;
+    return requiresWrite ? "OKX API returned empty body for a write intent." : null;
   }
 
   let parsed: unknown;
@@ -188,14 +290,6 @@ function detectOkxExecutionError(stdout: string, requiresWrite: boolean): string
   return null;
 }
 
-function detectProfilesInConfig(raw: string): { demo: boolean; live: boolean } {
-  const lowered = raw.toLowerCase();
-  return {
-    demo: /demo/.test(lowered),
-    live: /live/.test(lowered) || /apikey/.test(lowered) || /secretkey/.test(lowered),
-  };
-}
-
 function decorateCapabilitySnapshot(input: {
   okxCliAvailable: boolean;
   demoProfileLikelyConfigured: boolean;
@@ -205,13 +299,13 @@ function decorateCapabilitySnapshot(input: {
   const blockers: string[] = [];
 
   if (!input.okxCliAvailable) {
-    blockers.push("okx CLI missing on PATH");
+    blockers.push("OKX API credentials missing (OKX_API_KEY, OKX_SECRET_KEY, OKX_PASSPHRASE)");
   }
   if (!input.configExists) {
-    blockers.push("OKX config/profiles missing");
+    blockers.push("OKX API credentials not configured");
   }
   if (!input.demoProfileLikelyConfigured) {
-    blockers.push("demo profile not configured");
+    blockers.push("API credentials not configured (needed for demo trading)");
   }
 
   if (input.okxCliAvailable && input.configExists && input.demoProfileLikelyConfigured) {
@@ -247,221 +341,37 @@ function decorateCapabilitySnapshot(input: {
 
 export async function inspectOkxEnvironment(): Promise<CapabilitySnapshot> {
   const { profilesRoot } = getProjectPaths();
-  const okxCliPath = lookupOkxPath();
-  const homeConfigPath = join(homedir(), ".okx", "config.toml");
-  const homeConfigExists = await pathExists(homeConfigPath);
+  const credentialsAvailable = hasApiCredentials();
+  const configPath = credentialsAvailable
+    ? "env:OKX_API_KEY,OKX_SECRET_KEY,OKX_PASSPHRASE"
+    : profilesRoot;
 
-  let configPath = homeConfigPath;
-  let configExists = homeConfigExists;
-  let demoProfileLikelyConfigured = false;
-  let liveProfileLikelyConfigured = false;
   const warnings: string[] = [];
 
-  if (!okxCliPath) {
-    warnings.push("okx CLI was not found on PATH.");
-  }
-
-  if (homeConfigExists) {
-    try {
-      const raw = await readFile(homeConfigPath, "utf8");
-      const detected = detectProfilesInConfig(raw);
-      demoProfileLikelyConfigured = detected.demo;
-      liveProfileLikelyConfigured = detected.live;
-
-      if (!demoProfileLikelyConfigured) {
-        warnings.push("demo profile markers were not detected in ~/.okx/config.toml.");
-      }
-      if (!liveProfileLikelyConfigured) {
-        warnings.push("live profile markers were not detected in ~/.okx/config.toml.");
-      }
-    } catch {
-      warnings.push("~/.okx/config.toml exists but could not be read.");
-    }
-  } else {
-    configPath = profilesRoot;
-    configExists = await pathExists(profilesRoot);
-    demoProfileLikelyConfigured = await pathExists(join(profilesRoot, "demo.toml"));
-    liveProfileLikelyConfigured = await pathExists(join(profilesRoot, "live.toml"));
-
-    warnings.push("~/.okx/config.toml was not found; falling back to project profiles/ (local development mode).");
-
-    if (!configExists) {
-      warnings.push("profiles directory was not found.");
-    }
-    if (!demoProfileLikelyConfigured) {
-      warnings.push("demo profile was not found (profiles/demo.toml).");
-    }
-    if (!liveProfileLikelyConfigured) {
-      warnings.push("live profile was not found (profiles/live.toml).");
-    }
+  if (!credentialsAvailable) {
+    warnings.push("OKX API credentials not found. Set OKX_API_KEY, OKX_SECRET_KEY, OKX_PASSPHRASE environment variables.");
+    warnings.push("Market endpoints are public and will work without credentials.");
+    warnings.push("Account endpoints require valid API credentials.");
   }
 
   const decoration = decorateCapabilitySnapshot({
-    okxCliAvailable: Boolean(okxCliPath),
-    configExists,
-    demoProfileLikelyConfigured,
-    liveProfileLikelyConfigured,
+    okxCliAvailable: credentialsAvailable,
+    configExists: credentialsAvailable,
+    demoProfileLikelyConfigured: credentialsAvailable,
+    liveProfileLikelyConfigured: credentialsAvailable,
   });
 
   return {
-    okxCliAvailable: Boolean(okxCliPath),
-    okxCliPath,
+    okxCliAvailable: credentialsAvailable,
+    okxCliPath: credentialsAvailable ? "env:OKX_API_KEY" : undefined,
     configPath,
-    configExists,
-    demoProfileLikelyConfigured,
-    liveProfileLikelyConfigured,
+    configExists: credentialsAvailable,
+    demoProfileLikelyConfigured: credentialsAvailable,
+    liveProfileLikelyConfigured: credentialsAvailable,
     readinessGrade: decoration.readinessGrade,
     blockers: decoration.blockers,
     recommendedPlane: decoration.recommendedPlane,
     warnings,
-  };
-}
-
-function buildPlaneFlags(plane: ExecutionPlane): string[] {
-  if (plane === "demo") {
-    return ["--profile", "demo", "--json"];
-  }
-
-  if (plane === "live") {
-    return ["--profile", "live", "--json"];
-  }
-
-  return ["--json"];
-}
-
-export function buildOkxCommand(args: string[], plane: ExecutionPlane): string {
-  return ["okx", ...args, ...buildPlaneFlags(plane)].join(" ");
-}
-
-export function runOkxJson<T>(args: string[], plane: ExecutionPlane): OkxJsonResult<T> {
-  const command = buildOkxCommand(args, plane);
-  if (!lookupOkxPath()) {
-    return {
-      ok: false,
-      source: "unavailable",
-      command,
-      reason: "okx CLI is not installed on PATH.",
-    };
-  }
-
-  const result = spawnSync("okx", [...args, ...buildPlaneFlags(plane)], {
-    encoding: "utf8",
-  });
-
-  if (result.status !== 0) {
-    return {
-      ok: false,
-      source: "unavailable",
-      command,
-      reason: result.stderr.trim() || "okx CLI returned a non-zero exit status.",
-    };
-  }
-
-  if (!result.stdout.trim()) {
-    return {
-      ok: false,
-      source: "unavailable",
-      command,
-      reason: "okx CLI returned an empty response.",
-    };
-  }
-
-  try {
-    return {
-      ok: true,
-      source: "okx-cli",
-      command,
-      data: JSON.parse(result.stdout) as T,
-    };
-  } catch {
-    return {
-      ok: false,
-      source: "unavailable",
-      command,
-      reason: "okx CLI returned non-JSON output.",
-    };
-  }
-}
-
-export function readAccountSnapshot(plane: ExecutionPlane): OkxAccountSnapshot {
-  const balance = runOkxJson<unknown>(["account", "balance"], plane);
-  const positions = runOkxJson<unknown>(["account", "positions"], plane);
-  const feeRates = runOkxJson<unknown>(["account", "fee-rates"], plane);
-  const bills = runOkxJson<unknown>(["account", "bills"], plane);
-
-  const commands = [balance.command, positions.command, feeRates.command, bills.command];
-  const errors = [balance, positions, feeRates, bills]
-    .filter((result) => !result.ok)
-    .map((result) => result.reason ?? "Unknown OKX CLI error");
-  const hasAnyData = balance.ok || positions.ok || feeRates.ok || bills.ok;
-
-  return {
-    source: hasAnyData ? "okx-cli" : "fallback",
-    balance: balance.data,
-    positions: positions.data,
-    feeRates: feeRates.data,
-    bills: bills.data,
-    commands,
-    errors,
-  };
-}
-
-export function readMarketSnapshot(instIds: string[], plane: ExecutionPlane): OkxMarketSnapshot {
-  const tickers: Record<string, unknown> = {};
-  const candles: Record<string, unknown> = {};
-  const fundingRates: Record<string, unknown> = {};
-  const orderbooks: Record<string, unknown> = {};
-  const commands: string[] = [];
-  const errors: string[] = [];
-
-  for (const instId of instIds) {
-    const symbol = instId.split("-")[0] ?? instId;
-    const fundingInstId = `${symbol}-USDT-SWAP`;
-    const ticker = runOkxJson<unknown>(["market", "ticker", instId], plane);
-    const candle = runOkxJson<unknown>(["market", "candles", instId, "--bar", "1H", "--limit", "120"], plane);
-    const fundingRate = runOkxJson<unknown>(["market", "funding-rate", fundingInstId], plane);
-    const orderbook = runOkxJson<unknown>(["market", "orderbook", instId, "--sz", "20"], plane);
-    commands.push(ticker.command, candle.command, fundingRate.command, orderbook.command);
-
-    if (ticker.ok) {
-      tickers[instId] = ticker.data;
-    } else {
-      errors.push(`${instId} ticker: ${ticker.reason ?? "Unknown OKX CLI error"}`);
-    }
-
-    if (candle.ok) {
-      candles[instId] = candle.data;
-    } else {
-      errors.push(`${instId} candles: ${candle.reason ?? "Unknown OKX CLI error"}`);
-    }
-
-    if (fundingRate.ok) {
-      fundingRates[fundingInstId] = fundingRate.data;
-    } else {
-      errors.push(`${fundingInstId} funding-rate: ${fundingRate.reason ?? "Unknown OKX CLI error"}`);
-    }
-
-    if (orderbook.ok) {
-      orderbooks[instId] = orderbook.data;
-    } else {
-      errors.push(`${instId} orderbook: ${orderbook.reason ?? "Unknown OKX CLI error"}`);
-    }
-  }
-
-  const hasAnyData =
-    Object.keys(tickers).length > 0 ||
-    Object.keys(candles).length > 0 ||
-    Object.keys(fundingRates).length > 0 ||
-    Object.keys(orderbooks).length > 0;
-
-  return {
-    source: hasAnyData ? "okx-cli" : "fallback",
-    tickers,
-    candles,
-    fundingRates,
-    orderbooks,
-    commands,
-    errors,
   };
 }
 
@@ -490,7 +400,7 @@ export function createCommandIntent(
   };
 }
 
-export function executeIntent(intent: OkxCommandIntent, execute: boolean): ExecutionResult {
+export async function executeIntent(intent: OkxCommandIntent, execute: boolean): Promise<ExecutionResult> {
   const startedAtIso = new Date().toISOString();
   if (!execute) {
     return {
@@ -507,8 +417,10 @@ export function executeIntent(intent: OkxCommandIntent, execute: boolean): Execu
     };
   }
 
-  const [bin, ...args] = intent.args.length > 0 ? intent.args : tokenize(intent.command);
-  if (!bin) {
+  // Parse args: skip the leading "okx" binary name if present
+  const rawArgs = intent.args.length > 0 ? intent.args : tokenize(intent.command);
+  const args = rawArgs[0] === "okx" ? rawArgs.slice(1) : rawArgs;
+  if (args.length === 0) {
     return {
       intent,
       ok: false,
@@ -523,30 +435,86 @@ export function executeIntent(intent: OkxCommandIntent, execute: boolean): Execu
     };
   }
 
-  const startedAt = Date.now();
-  const result = spawnSync(bin, args, {
-    encoding: "utf8",
-    timeout: intent.requiresWrite ? 25_000 : 15_000,
-  });
-  const durationMs = Date.now() - startedAt;
-  const executionError = result.status === 0 ? undefined : result.error;
-  const semanticError = result.status === 0
-    ? detectOkxExecutionError(result.stdout ?? "", intent.requiresWrite)
-    : null;
-  const stderrParts = [result.stderr ?? ""];
-  if (executionError instanceof Error) {
-    stderrParts.push(executionError.message);
+  const endpoint = argsToEndpoint(args);
+  if (!endpoint) {
+    return {
+      intent,
+      ok: false,
+      exitCode: null,
+      stdout: "",
+      stderr: `Unknown OKX command: ${args.join(" ")}`,
+      skipped: false,
+      dryRun: false,
+      startedAt: startedAtIso,
+      finishedAt: startedAtIso,
+      durationMs: 0,
+    };
   }
+
+  if (endpoint.needsAuth && !hasApiCredentials()) {
+    return {
+      intent,
+      ok: false,
+      exitCode: null,
+      stdout: "",
+      stderr: "OKX API credentials not configured (OKX_API_KEY, OKX_SECRET_KEY, OKX_PASSPHRASE).",
+      skipped: false,
+      dryRun: false,
+      startedAt: startedAtIso,
+      finishedAt: startedAtIso,
+      durationMs: 0,
+    };
+  }
+
+  const url = endpointToUrl(endpoint);
+  const signPath = requestPathForSign(endpoint);
+  const headers = buildHeaders("demo", endpoint.needsAuth, signPath, endpoint.method);
+
+  const startedAt = Date.now();
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: endpoint.method,
+      headers,
+      signal: AbortSignal.timeout(intent.requiresWrite ? 25_000 : 15_000),
+    });
+  } catch (err) {
+    const durationMs = Date.now() - startedAt;
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      intent,
+      ok: false,
+      exitCode: null,
+      stdout: "",
+      stderr: message,
+      skipped: false,
+      dryRun: false,
+      startedAt: startedAtIso,
+      finishedAt: new Date().toISOString(),
+      durationMs,
+    };
+  }
+
+  const durationMs = Date.now() - startedAt;
+  const stdout = await response.text().catch(() => "");
+  const stderrParts: string[] = [];
+
+  if (!response.ok) {
+    stderrParts.push(`OKX API returned HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  const semanticError = response.ok ? detectOkxExecutionError(stdout, intent.requiresWrite) : null;
   if (semanticError) {
     stderrParts.push(semanticError);
   }
+
   const stderr = stderrParts.filter((entry) => entry.trim().length > 0).join("\n");
 
   return {
     intent,
-    ok: result.status === 0 && !semanticError,
-    exitCode: result.status,
-    stdout: result.stdout ?? "",
+    ok: response.ok && !semanticError,
+    exitCode: response.ok ? 0 : response.status,
+    stdout,
     stderr,
     skipped: false,
     dryRun: false,
@@ -556,16 +524,190 @@ export function executeIntent(intent: OkxCommandIntent, execute: boolean): Execu
   };
 }
 
-export function runOkxProbe(
+export async function runOkxJson<T>(args: string[], plane: ExecutionPlane): Promise<OkxJsonResult<T>> {
+  const command = buildOkxCommand(args, plane);
+  const endpoint = argsToEndpoint(args);
+
+  if (!endpoint) {
+    return {
+      ok: false,
+      source: "unavailable",
+      command,
+      reason: `Unknown OKX command: ${args.join(" ")}`,
+    };
+  }
+
+  // Account/trade endpoints require credentials
+  if (endpoint.needsAuth && !hasApiCredentials()) {
+    return {
+      ok: false,
+      source: "unavailable",
+      command,
+      reason: "OKX API credentials not configured (OKX_API_KEY, OKX_SECRET_KEY, OKX_PASSPHRASE).",
+    };
+  }
+
+  const url = endpointToUrl(endpoint);
+  const signPath = requestPathForSign(endpoint);
+  const headers = buildHeaders(plane, endpoint.needsAuth, signPath, endpoint.method);
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: endpoint.method,
+      headers,
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch (err) {
+    return {
+      ok: false,
+      source: "unavailable",
+      command,
+      reason: err instanceof Error ? err.message : String(err),
+    };
+  }
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      source: "unavailable",
+      command,
+      reason: `OKX API returned HTTP ${response.status}: ${response.statusText}`,
+    };
+  }
+
+  const body = await response.text();
+  if (!body.trim()) {
+    return {
+      ok: false,
+      source: "unavailable",
+      command,
+      reason: "OKX API returned an empty response.",
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(body);
+    // Check for OKX API-level errors (code !== "0")
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const payload = parsed as Record<string, unknown>;
+      if ("code" in payload) {
+        const responseCode = String(payload.code ?? "");
+        if (responseCode !== "" && responseCode !== "0") {
+          return {
+            ok: false,
+            source: "unavailable",
+            command,
+            reason: summarizeOkxErrorPayload(payload),
+          };
+        }
+      }
+    }
+    return {
+      ok: true,
+      source: "okx-cli",
+      command,
+      data: parsed as T,
+    };
+  } catch {
+    return {
+      ok: false,
+      source: "unavailable",
+      command,
+      reason: "OKX API returned non-JSON output.",
+    };
+  }
+}
+
+export async function readAccountSnapshot(plane: ExecutionPlane): Promise<OkxAccountSnapshot> {
+  const [balance, positions, feeRates, bills] = await Promise.all([
+    runOkxJson<unknown>(["account", "balance"], plane),
+    runOkxJson<unknown>(["account", "positions"], plane),
+    runOkxJson<unknown>(["account", "fee-rates"], plane),
+    runOkxJson<unknown>(["account", "bills"], plane),
+  ]);
+
+  const commands = [balance.command, positions.command, feeRates.command, bills.command];
+  const errors = [balance, positions, feeRates, bills]
+    .filter((result) => !result.ok)
+    .map((result) => result.reason ?? "Unknown OKX API error");
+  const hasAnyData = balance.ok || positions.ok || feeRates.ok || bills.ok;
+
+  return {
+    source: hasAnyData ? "okx-cli" : "fallback",
+    balance: balance.data,
+    positions: positions.data,
+    feeRates: feeRates.data,
+    bills: bills.data,
+    commands,
+    errors,
+  };
+}
+
+export async function readMarketSnapshot(instIds: string[], plane: ExecutionPlane): Promise<OkxMarketSnapshot> {
+  const tickers: Record<string, unknown> = {};
+  const candles: Record<string, unknown> = {};
+  const fundingRates: Record<string, unknown> = {};
+  const orderbooks: Record<string, unknown> = {};
+  const commands: string[] = [];
+  const errors: string[] = [];
+
+  // Fetch all market data in parallel for each instrument
+  const fetches = instIds.flatMap((instId) => {
+    const symbol = instId.split("-")[0] ?? instId;
+    const fundingInstId = `${symbol}-USDT-SWAP`;
+    return [
+      { key: "ticker" as const, instId, promise: runOkxJson<unknown>(["market", "ticker", instId], plane) },
+      { key: "candle" as const, instId, promise: runOkxJson<unknown>(["market", "candles", instId, "--bar", "1H", "--limit", "120"], plane) },
+      { key: "funding" as const, instId: fundingInstId, promise: runOkxJson<unknown>(["market", "funding-rate", fundingInstId], plane) },
+      { key: "orderbook" as const, instId, promise: runOkxJson<unknown>(["market", "orderbook", instId, "--sz", "20"], plane) },
+    ];
+  });
+
+  const results = await Promise.all(fetches.map((f) => f.promise.then((r) => ({ ...f, result: r }))));
+
+  for (const entry of results) {
+    const { key, instId, result } = entry;
+    commands.push(result.command);
+
+    if (result.ok) {
+      if (key === "ticker") tickers[instId] = result.data;
+      else if (key === "candle") candles[instId] = result.data;
+      else if (key === "funding") fundingRates[instId] = result.data;
+      else if (key === "orderbook") orderbooks[instId] = result.data;
+    } else {
+      errors.push(`${instId} ${key}: ${result.reason ?? "Unknown OKX API error"}`);
+    }
+  }
+
+  const hasAnyData =
+    Object.keys(tickers).length > 0 ||
+    Object.keys(candles).length > 0 ||
+    Object.keys(fundingRates).length > 0 ||
+    Object.keys(orderbooks).length > 0;
+
+  return {
+    source: hasAnyData ? "okx-cli" : "fallback",
+    tickers,
+    candles,
+    fundingRates,
+    orderbooks,
+    commands,
+    errors,
+  };
+}
+
+export async function runOkxProbe(
   module: ProbeModuleName,
   args: string[],
   plane: ExecutionPlane,
   timeoutMs = 8_000,
-): ProbeReceipt {
+): Promise<ProbeReceipt> {
   const command = buildOkxCommand(args, plane);
   const startedAt = Date.now();
+  const endpoint = argsToEndpoint(args);
 
-  if (!lookupOkxPath()) {
+  if (!endpoint) {
     const reasonCode: ProbeReasonCode = "cli_missing";
     return {
       module,
@@ -574,47 +716,71 @@ export function runOkxProbe(
       exitCode: null,
       durationMs: Date.now() - startedAt,
       stdout: "",
-      stderr: "okx CLI is not installed on PATH.",
+      stderr: `Unknown OKX command: ${args.join(" ")}`,
       reasonCode,
       nextActionCmd: nextActionForProbeReason(reasonCode, plane),
-      message: "okx CLI is not installed on PATH.",
+      message: `Unknown OKX command: ${args.join(" ")}`,
     };
   }
 
-  const result = spawnSync("okx", [...args, ...buildPlaneFlags(plane)], {
-    encoding: "utf8",
-    timeout: timeoutMs,
-  });
+  // Account/trade endpoints require credentials; market endpoints are public
+  if (endpoint.needsAuth && !hasApiCredentials()) {
+    const reasonCode: ProbeReasonCode = "cli_missing";
+    return {
+      module,
+      command,
+      ok: false,
+      exitCode: null,
+      durationMs: Date.now() - startedAt,
+      stdout: "",
+      stderr: "OKX API credentials not configured.",
+      reasonCode,
+      nextActionCmd: nextActionForProbeReason(reasonCode, plane),
+      message: "OKX API credentials not configured (OKX_API_KEY, OKX_SECRET_KEY, OKX_PASSPHRASE).",
+    };
+  }
+
+  const url = endpointToUrl(endpoint);
+  const signPath = requestPathForSign(endpoint);
+  const headers = buildHeaders(plane, endpoint.needsAuth, signPath, endpoint.method);
+
+  let response: Response;
+  let fetchError: string | undefined;
+  try {
+    response = await fetch(url, {
+      method: endpoint.method,
+      headers,
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (err) {
+    fetchError = err instanceof Error ? err.message : String(err);
+    const reasonCode = classifyProbeReason(fetchError);
+    return {
+      module,
+      command,
+      ok: false,
+      exitCode: null,
+      durationMs: Date.now() - startedAt,
+      stdout: "",
+      stderr: fetchError,
+      reasonCode,
+      nextActionCmd: nextActionForProbeReason(reasonCode, plane),
+      message: fetchError,
+    };
+  }
+
   const durationMs = Date.now() - startedAt;
-  const stdout = result.stdout ?? "";
-  const stderr = result.stderr ?? "";
-  const probeError = result.status === 0 ? undefined : result.error;
+  const stdout = await response.text().catch(() => "");
+  const stderr = "";
 
-  if (probeError) {
-    const message = stderr || probeError.message;
+  if (!response.ok) {
+    const message = `OKX API returned HTTP ${response.status}: ${response.statusText}`;
     const reasonCode = classifyProbeReason(message);
     return {
       module,
       command,
       ok: false,
-      exitCode: result.status,
-      durationMs,
-      stdout,
-      stderr: message,
-      reasonCode,
-      nextActionCmd: nextActionForProbeReason(reasonCode, plane),
-      message: probeError.message,
-    };
-  }
-
-  if (result.status !== 0) {
-    const message = stderr.trim() || "okx CLI returned a non-zero exit status.";
-    const reasonCode = classifyProbeReason(message);
-    return {
-      module,
-      command,
-      ok: false,
-      exitCode: result.status,
+      exitCode: response.status,
       durationMs,
       stdout,
       stderr,
@@ -633,13 +799,13 @@ export function runOkxProbe(
       module,
       command,
       ok: false,
-      exitCode: result.status,
+      exitCode: response.status,
       durationMs,
       stdout,
       stderr,
       reasonCode,
       nextActionCmd: nextActionForProbeReason(reasonCode, plane),
-      message: "okx CLI returned non-JSON output.",
+      message: "OKX API returned non-JSON output.",
     };
   }
 
@@ -654,7 +820,7 @@ export function runOkxProbe(
           module,
           command,
           ok: false,
-          exitCode: result.status,
+          exitCode: response.status,
           durationMs,
           stdout,
           stderr,
@@ -670,7 +836,7 @@ export function runOkxProbe(
     module,
     command,
     ok: true,
-    exitCode: result.status,
+    exitCode: response.status,
     durationMs,
     stdout,
     stderr,

@@ -76,7 +76,7 @@ async function matchByClientOrderRef(
     };
   }
 
-  const query = runOkxJson<unknown>(["trade", "orders-history", "--clOrdId", clientOrderRef], plane);
+  const query = await runOkxJson<unknown>(["trade", "orders-history", "--clOrdId", clientOrderRef], plane);
   const evidence = [`client-id query: ${query.command}`];
   if (!query.ok) {
     return {
@@ -130,7 +130,7 @@ async function matchByFallbackWindow(
     };
   }
 
-  const query = runOkxJson<unknown>(["trade", "orders-history", "--instId", instId], plane);
+  const query = await runOkxJson<unknown>(["trade", "orders-history", "--instId", instId], plane);
   const evidence = [`fallback query: ${query.command}`];
   if (!query.ok) {
     return {

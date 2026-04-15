@@ -468,10 +468,10 @@ async function runProbeReceipts(mode: ProbeMode, plane: ExecutionPlane): Promise
   }
 
   const receipts: ProbeReceipt[] = [];
-  receipts.push(runOkxProbe("market-read", ["market", "ticker", "BTC-USDT"], plane));
-  receipts.push(runOkxProbe("account-read", ["account", "balance"], plane));
+  receipts.push(await runOkxProbe("market-read", ["market", "ticker", "BTC-USDT"], plane));
+  receipts.push(await runOkxProbe("account-read", ["account", "balance"], plane));
   if (mode === "write") {
-    receipts.push(runOkxProbe("write-path", ["account", "positions"], plane));
+    receipts.push(await runOkxProbe("write-path", ["account", "positions"], plane));
   }
 
   return receipts;

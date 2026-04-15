@@ -438,7 +438,7 @@ export default async function run(context: SkillContext): Promise<SkillOutput> {
   const symbolSelection = symbolsFromContext(context);
   const symbols = symbolSelection.symbols;
   const instIds = symbols.map((symbol) => `${symbol}-USDT`);
-  const marketSnapshot = readMarketSnapshot(instIds, context.plane);
+  const marketSnapshot = await readMarketSnapshot(instIds, context.plane);
   const ruleCards = await loadRuleCards();
   const doctrineCards = await loadDoctrineCards();
   const ruleRefs = ruleCards

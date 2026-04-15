@@ -284,7 +284,7 @@ function extractAccountEquity(balancePayload: unknown): number {
 }
 
 function buildRiskProfile(
-  accountSnapshot: ReturnType<typeof readAccountSnapshot>,
+  accountSnapshot: Awaited<ReturnType<typeof readAccountSnapshot>>,
 ): PortfolioRiskProfile {
   const positionRows = extractPositionRows(accountSnapshot.positions);
   const concentration = extractConcentration(positionRows);
@@ -299,7 +299,7 @@ function buildRiskProfile(
 }
 
 export default async function run(context: SkillContext): Promise<SkillOutput> {
-  const accountSnapshot = readAccountSnapshot(context.plane);
+  const accountSnapshot = await readAccountSnapshot(context.plane);
   const riskProfile = buildRiskProfile(accountSnapshot);
   const goalIntake = resolveGoalIntake({
     goal: context.goal,

@@ -26,7 +26,7 @@ function mergeProbeArtifact(existing: ProbeArtifactData | undefined, receipt: Pr
 
 export default async function run(context: SkillContext): Promise<SkillOutput> {
   const previous = context.artifacts.get<ProbeArtifactData>("diagnostics.probes")?.data;
-  const receipt = runOkxProbe("account-read", ["account", "balance"], context.plane);
+  const receipt = await runOkxProbe("account-read", ["account", "balance"], context.plane);
   const merged = mergeProbeArtifact(previous, receipt);
 
   putArtifact(context.artifacts, {

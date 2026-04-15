@@ -37,7 +37,7 @@ function mergeProbeArtifact(existing: ProbeArtifactData | undefined, receipt: Pr
 export default async function run(context: SkillContext): Promise<SkillOutput> {
   const previous = context.artifacts.get<ProbeArtifactData>("diagnostics.probes")?.data;
   const symbol = symbolsForProbe(context)[0] ?? "BTC";
-  const receipt = runOkxProbe("market-read", ["market", "ticker", `${symbol}-USDT`], context.plane);
+  const receipt = await runOkxProbe("market-read", ["market", "ticker", `${symbol}-USDT`], context.plane);
   const merged = mergeProbeArtifact(previous, receipt);
 
   putArtifact(context.artifacts, {

@@ -1073,7 +1073,7 @@ async function executeWithRecovery(
   options: { runId: string; proposal: string; executeRequested: boolean },
 ): Promise<ExecutionWithRecovery> {
   if (!options.executeRequested) {
-    const dryRunResults = intents.map((intent) => executeIntent(intent, false));
+    const dryRunResults = await Promise.all(intents.map((intent) => executeIntent(intent, false)));
     return {
       results: dryRunResults,
       errors: [],
@@ -1087,7 +1087,7 @@ async function executeWithRecovery(
 
   for (let index = 0; index < intents.length; index += 1) {
     const intent = intents[index];
-    const firstAttempt = executeIntent(intent, true);
+    const firstAttempt = await executeIntent(intent, true);
     firstAttempt.attempt = 1;
     if (firstAttempt.ok) {
       results.push(firstAttempt);
@@ -1115,7 +1115,7 @@ async function executeWithRecovery(
 
     if (category === "retryable" && intent.safeToRetry) {
       await sleep(2_000);
-      const secondAttempt = executeIntent(intent, true);
+      const secondAttempt = await executeIntent(intent, true);
       secondAttempt.attempt = 2;
       if (secondAttempt.ok) {
         results.push(secondAttempt);
@@ -1158,7 +1158,7 @@ async function executeApplyWithIdempotency(
   },
 ): Promise<ExecutionWithRecovery> {
   if (!options.executeRequested) {
-    const dryRunResults = intents.map((intent) => executeIntent(intent, false));
+    const dryRunResults = await Promise.all(intents.map((intent) => executeIntent(intent, false)));
     return {
       results: dryRunResults,
       errors: [],
@@ -1255,7 +1255,7 @@ async function executeApplyWithIdempotency(
       }
     }
 
-    const firstAttempt = executeIntent(intent, true);
+    const firstAttempt = await executeIntent(intent, true);
     firstAttempt.attempt = 1;
     if (firstAttempt.ok) {
       if (intent.requiresWrite && fingerprint && options.deferWriteFinalization !== true) {
@@ -1308,7 +1308,7 @@ async function executeApplyWithIdempotency(
 
     if (category === "retryable" && intent.safeToRetry) {
       await sleep(2_000);
-      const secondAttempt = executeIntent(intent, true);
+      const secondAttempt = await executeIntent(intent, true);
       secondAttempt.attempt = 2;
       if (secondAttempt.ok) {
         if (intent.requiresWrite && fingerprint && options.deferWriteFinalization !== true) {
