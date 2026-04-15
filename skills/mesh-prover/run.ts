@@ -116,7 +116,8 @@ function buildMinimality(
 
     const producesRequired = manifest.produces.some((artifact) => required.has(artifact));
     const isMemoryTail = manifest.stage === "memory" && !manifest.produces.some((artifact) => targetOutputs.includes(artifact));
-    if (!producesRequired && !isMemoryTail) {
+    const isGuardrail = manifest.role === "guardrail";
+    if (!producesRequired && !isMemoryTail && !isGuardrail) {
       redundantSkills.push(skill);
       continue;
     }
