@@ -105,6 +105,26 @@ trademesh replay --bundle .trademesh/exports/<run-id>/bundle.json
 For a step-by-step first run, see [docs/QUICKSTART.md](./docs/QUICKSTART.md).
 For product-oriented scenarios, see [docs/USE-CASES.md](./docs/USE-CASES.md).
 
+## Live Demo
+
+Real runtime execution on live OKX API + X Layer integration:
+
+### 1. Doctor — Grade A Readiness
+Full health check with wallet binding, X Layer chain, and OKX API connectivity:
+![Doctor Grade A](./screenshots/01-doctor-grade-a.jpg)
+
+### 2. Skills Graph — 21 Node Topology
+Auto-discovered skill mesh with artifact contracts and dependency edges:
+![Skills Graph](./screenshots/02-skills-graph.jpg)
+
+### 3. Plan — Ranked Proposals with Scores
+Natural language goal → structured proposals with policy preview:
+![Plan Proposals](./screenshots/03-plan-proposals.jpg)
+
+### 4. Apply — Wallet-Aware Onchain Routing
+Agentic Wallet (`0x2dcb...eaf7e`) bound execution with X Layer chain metadata:
+![Apply Routing](./screenshots/04-apply-routing.jpg)
+
 ## Core Commands
 
 | Command | Purpose |
